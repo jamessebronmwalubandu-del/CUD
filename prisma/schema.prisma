@@ -1,0 +1,344 @@
+// CUD Management System - CASFETA CUD Chapter
+// Production-grade Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTHENTICATION & USERS
+// ============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  passwordHash  String
+  role          String   @default("MEMBER") // SUPER_ADMIN | ADMIN | MEMBER
+  memberId      String?  @unique
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  member        Member?  @relation("UserMember", fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([role])
+}
+
+// ============================================================
+// MEMBERS
+// ============================================================
+
+model Member {
+  id               String   @id @default(cuid())
+  fullName         String
+  regNumber        String   @unique
+  phoneNumber      String
+  email            String?  @unique
+  gender           String   // MALE | FEMALE
+  faculty          String
+  department       String
+  course           String
+  yearOfStudy      String   // YEAR_1 | YEAR_2 | YEAR_3 | YEAR_4 | YEAR_5
+  hostel           String?
+  homeRegion       String?
+  emergencyContact String?
+  profilePhoto     String?
+  biography        String?
+  status           String   @default("ACTIVE") // ACTIVE | INACTIVE | GRADUATED
+  joinedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User?    @relation("UserMember")
+  skills           MemberSkill[]
+  ministries       MinistryMember[]
+  attendance       AttendanceRecord[]
+  eventRegs        EventRegistration[]
+  announcementComments Comment[]
+  documentsUploaded Document[]
+  auditLogs        AuditLog[]
+  createdAnnouncements Announcement[]
+  createdEvents     Event[]
+  ledMinistries    Ministry[]           @relation("MinistryLeader")
+  assistedMinistries Ministry[]         @relation("MinistryAssistant")
+
+  @@index([faculty])
+  @@index([department])
+  @@index([course])
+  @@index([yearOfStudy])
+  @@index([gender])
+  @@index([status])
+}
+
+// ============================================================
+// SKILLS
+// ============================================================
+
+model Skill {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    String?  // e.g. Music, Technical, Leadership, Sports
+  description String?
+  createdAt   DateTime @default(now())
+
+  members     MemberSkill[]
+
+  @@index([category])
+}
+
+model MemberSkill {
+  id          String   @id @default(cuid())
+  memberId    String
+  skillId     String
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  proficiency String?  // BEGINNER | INTERMEDIATE | ADVANCED | EXPERT
+  requestedAt DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?  // member id of reviewer
+  reviewerNote String?
+
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, skillId])
+  @@index([status])
+}
+
+// ============================================================
+// MINISTRIES
+// ============================================================
+
+model Ministry {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  color           String?  @default("#0f766e")
+  leaderId        String?
+  assistantLeaderId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  leader          Member?  @relation("MinistryLeader", fields: [leaderId], references: [id])
+  assistantLeader Member?  @relation("MinistryAssistant", fields: [assistantLeaderId], references: [id])
+  members         MinistryMember[]
+  documents       Document[]
+  attendanceSessions AttendanceSession[]
+  announcements   Announcement[]
+
+  @@index([leaderId])
+}
+
+model MinistryMember {
+  id         String   @id @default(cuid())
+  ministryId String
+  memberId   String
+  role       String   @default("MEMBER") // LEADER | ASSISTANT | MEMBER
+  joinedAt   DateTime @default(now())
+
+  ministry   Ministry @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([ministryId, memberId])
+  @@index([role])
+}
+
+// ============================================================
+// ATTENDANCE
+// ============================================================
+
+model AttendanceSession {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // SUNDAY_FELLOWSHIP | BIBLE_STUDY | PRAYER_MEETING | CONFERENCE | EVANGELISM
+  date        DateTime
+  ministryId  String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  ministry    Ministry? @relation(fields: [ministryId], references: [id])
+  records     AttendanceRecord[]
+
+  @@index([type])
+  @@index([date])
+  @@index([ministryId])
+}
+
+model AttendanceRecord {
+  id           String   @id @default(cuid())
+  sessionId    String
+  memberId     String
+  present      Boolean  @default(false)
+  reason       String?  // absence reason
+  recordedAt   DateTime @default(now())
+
+  session      AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, memberId])
+  @@index([memberId])
+}
+
+// ============================================================
+// DOCUMENTS
+// ============================================================
+
+model Document {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  category     String   // CONSTITUTION | MEETING_MINUTES | TIMETABLES | LETTERS | FINANCIAL | SCHEDULES | OTHER
+  fileName     String
+  filePath     String
+  fileType     String   // pdf | docx | xlsx | image
+  fileSize     Int
+  ministryId   String?
+  uploadedById String?
+  accessLevel  String   @default("ALL") // ALL | ADMIN | SUPER_ADMIN | MINISTRY
+  downloads    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ministry     Ministry? @relation(fields: [ministryId], references: [id])
+  uploadedBy   Member?   @relation(fields: [uploadedById], references: [id])
+
+  @@index([category])
+  @@index([ministryId])
+  @@index([accessLevel])
+}
+
+// ============================================================
+// ANNOUNCEMENTS & COMMUNICATIONS
+// ============================================================
+
+model Announcement {
+  id           String   @id @default(cuid())
+  title        String
+  content      String
+  audience     String   @default("ALL") // ALL | MINISTRY | COURSE | FACULTY | HOSTEL | CUSTOM
+  audienceRef  String?  // ministry id, course name, etc.
+  priority     String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  smsSent      Boolean  @default(false)
+  smsRecipients Int     @default(0)
+  authorId     String?
+  ministryId   String?
+  pinned       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  author       Member?   @relation(fields: [authorId], references: [id])
+  ministry     Ministry? @relation(fields: [ministryId], references: [id])
+  comments     Comment[]
+
+  @@index([audience])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model Comment {
+  id             String   @id @default(cuid())
+  announcementId String
+  memberId       String
+  content        String
+  createdAt      DateTime @default(now())
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  member         Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  memberId    String?
+  title       String
+  message     String
+  type        String   @default("INFO") // INFO | SUCCESS | WARNING | ERROR | ANNOUNCEMENT
+  isRead      Boolean  @default(false)
+  link        String?
+  createdAt   DateTime @default(now())
+
+  @@index([memberId])
+  @@index([isRead])
+}
+
+// ============================================================
+// EVENTS
+// ============================================================
+
+model Event {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  location      String?
+  startDate     DateTime
+  endDate       DateTime?
+  organizerId   String?
+  ministryId    String?
+  capacity      Int?
+  status        String   @default("UPCOMING") // UPCOMING | ONGOING | COMPLETED | CANCELLED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organizer     Member?   @relation(fields: [organizerId], references: [id])
+  registrations EventRegistration[]
+
+  @@index([startDate])
+  @@index([status])
+}
+
+model EventRegistration {
+  id          String   @id @default(cuid())
+  eventId     String
+  memberId    String
+  registeredAt DateTime @default(now())
+  attended    Boolean  @default(false)
+
+  event       Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member      Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId])
+}
+
+// ============================================================
+// AUDIT LOGS
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  action      String   // CREATE | UPDATE | DELETE | APPROVE | REJECT | LOGIN | LOGOUT
+  module      String   // MEMBERS | SKILLS | MINISTRIES | ATTENDANCE | DOCUMENTS | ANNOUNCEMENTS | EVENTS | AUTH
+  entityId    String?
+  entityType  String?
+  description String
+  metadata    String?  // JSON string
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  actor       Member?  @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([module])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================================
+// SYSTEM SETTINGS
+// ============================================================
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+}
