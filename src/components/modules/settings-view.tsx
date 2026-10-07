@@ -20,7 +20,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Settings as SettingsIcon, Users, ScrollText, Save, ShieldCheck, AlertCircle, KeyRound,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Settings as SettingsIcon, Users, ScrollText, Save, ShieldCheck, AlertCircle, KeyRound, Search, Key, Info,
 } from "lucide-react";
 import { api, formatDateTime, initials, timeAgo } from "@/lib/utils/client";
 import type { SystemSetting, UserAccount, Role } from "@/types";
@@ -232,6 +235,13 @@ function UsersSettings() {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState<string>("ALL");
+
+  // Reset Password Dialog state
+  const [resetUser, setResetUser] = useState<UserAccount | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -273,10 +283,55 @@ function UsersSettings() {
     } finally { setSaving(null); }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetUser || !newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    setResetting(true);
+    try {
+      await api.patch(`/api/users/${resetUser.id}`, { password: newPassword });
+      toast.success(`Password reset successfully for ${resetUser.username}!`);
+      setResetUser(null);
+      setNewPassword("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset password.");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const roleKeys: Role[] = ["SUPER_ADMIN", "ADMIN", "MEMBER"];
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      if (filterRole !== "ALL" && u.role !== filterRole) return false;
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.member?.fullName?.toLowerCase().includes(q) ?? false) ||
+        (u.member?.regNumber?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [users, search, filterRole]);
 
   return (
     <div className="space-y-4">
+      {/* Super Admin Access Policy Notice */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 text-foreground">
+        <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="text-xs space-y-1">
+          <p className="font-semibold text-primary">Role & Permission Policy</p>
+          <p className="text-muted-foreground leading-relaxed">
+            All users who self-register or join via Google OAuth are assigned the default base role <strong className="text-foreground">Member</strong>.
+            As Super Admin, you have exclusive control below to elevate any individual to <strong className="text-foreground">Admin</strong> (Ministry Leader) and revoke permissions back to Member whenever needed.
+          </p>
+        </div>
+      </div>
+
       {/* Role distribution */}
       <div className="space-y-2">
         <div>
@@ -307,17 +362,43 @@ function UsersSettings() {
 
       {/* Users table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.userAccounts")}</CardTitle>
-          <CardDescription>{t("settings.userCountTotal", { n: users.length })}</CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4">
+          <div>
+            <CardTitle className="text-base">{t("settings.userAccounts")}</CardTitle>
+            <CardDescription>{t("settings.userCountTotal", { n: users.length })}</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative w-48 sm:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search username, name, email…"
+                className="pl-8 h-8 text-xs"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger className="h-8 text-xs w-28">
+                <SelectValue placeholder="All Roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Roles</SelectItem>
+                <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MEMBER">Member</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 space-y-3">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
             </div>
-          ) : users.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">{t("settings.noUsers")}</div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              {search ? "No users matching your search." : t("settings.noUsers")}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -328,10 +409,11 @@ function UsersSettings() {
                     <TableHead>{t("settings.role")}</TableHead>
                     <TableHead>{t("settings.active")}</TableHead>
                     <TableHead className="hidden lg:table-cell">{t("settings.lastLogin")}</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <TableRow key={u.id}>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
@@ -383,6 +465,21 @@ function UsersSettings() {
                       <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                         {u.lastLoginAt ? timeAgo(u.lastLoginAt, locale) : t("settings.never")}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setResetUser(u);
+                            setNewPassword("");
+                          }}
+                          title="Reset user password"
+                        >
+                          <Key className="h-3.5 w-3.5 mr-1 text-primary" />
+                          Reset
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -391,6 +488,43 @@ function UsersSettings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Super Admin Password Reset Dialog */}
+      <Dialog open={!!resetUser} onOpenChange={(open) => { if (!open) setResetUser(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-4 w-4 text-primary" />
+              Reset Password for {resetUser?.username}
+            </DialogTitle>
+            <DialogDescription>
+              Set a new secure password for this user ({resetUser?.email}). They will be able to immediately sign in using this new password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordReset} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="admin-new-password">New Password</Label>
+              <Input
+                id="admin-new-password"
+                type="password"
+                placeholder="Enter at least 6 characters"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                disabled={resetting}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setResetUser(null)} disabled={resetting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={resetting || newPassword.length < 6}>
+                {resetting ? "Resetting…" : "Update Password"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

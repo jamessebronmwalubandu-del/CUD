@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { authorize } from "@/lib/rbac/permissions";
 import { auditLog } from "@/lib/services/audit";
+import { hashPassword } from "@/lib/auth/password";
 import {
   ok,
   badRequest,
@@ -13,7 +14,7 @@ import {
 
 export const runtime = "nodejs";
 
-// PATCH /api/users/[id] — update role / isActive
+// PATCH /api/users/[id] — update role / isActive / password
 const PATCH = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const current = await getCurrentUser();
   if (!current) return unauthorized();
@@ -29,6 +30,9 @@ const PATCH = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{
   const data: Record<string, unknown> = {};
   if (body.role && ["SUPER_ADMIN", "ADMIN", "MEMBER"].includes(body.role)) data.role = body.role;
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
+  if (body.password && typeof body.password === "string" && body.password.length >= 6) {
+    data.passwordHash = await hashPassword(body.password);
+  }
 
   const updated = await db.user.update({ where: { id }, data });
 

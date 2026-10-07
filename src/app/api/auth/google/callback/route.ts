@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { generateSessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth/session";
+import { hashPassword } from "@/lib/auth/password";
 import { auditLog } from "@/lib/services/audit";
 
 export const runtime = "nodejs";
+
+function getOrigin(req: NextRequest): string {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  const host = req.headers.get("host");
+  if (host) {
+    const proto = host.includes("localhost") ? "http" : "https";
+    return `${proto}://${host}`;
+  }
+  return req.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || "https://casfeta-cud.vercel.app";
+}
 
 /**
  * GET /api/auth/google/callback
@@ -12,11 +27,11 @@ export const runtime = "nodejs";
  * Flow:
  *  1. Exchange the `code` for tokens
  *  2. Fetch the user's Google profile (email, name, picture)
- *  3. Find the matching User in the DB by email
- *  4. Create a session — or return an error if no account exists
+ *  3. Find the matching User in DB by email, OR auto-provision as a new MEMBER
+ *  4. Create a session and redirect to the application
  */
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin || "http://localhost:3000";
+  const appUrl = getOrigin(req);
   const { searchParams } = new URL(req.url);
 
   const error = searchParams.get("error");
@@ -89,17 +104,82 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${appUrl}?error=google_profile_failed`);
     }
 
-    // ── Step 3: Find existing user by email ───────────────────────────
-    const user = await db.user.findUnique({
-      where: { email: profile.email.toLowerCase() },
+    const normalizedEmail = profile.email.toLowerCase().trim();
+
+    // ── Step 3: Find existing user or auto-provision as normal MEMBER ──
+    let user = await db.user.findUnique({
+      where: { email: normalizedEmail },
       include: { member: true },
     });
 
-    if (!user || !user.isActive) {
-      console.warn(`[Google OAuth] No active user found for email: ${profile.email}`);
-      return NextResponse.redirect(
-        `${appUrl}?error=google_no_account&email=${encodeURIComponent(profile.email)}`
-      );
+    if (!user) {
+      // Auto-register new Google user as default "MEMBER" (normal user)
+      const baseUsername =
+        normalizedEmail.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20) || "user";
+      let candidateUsername = baseUsername;
+      let counter = 1;
+      while (await db.user.findUnique({ where: { username: candidateUsername } })) {
+        candidateUsername = `${baseUsername}${counter++}`;
+      }
+
+      const randomPassword =
+        Math.random().toString(36).slice(-12) + Date.now().toString(36);
+      const passwordHash = await hashPassword(randomPassword);
+
+      const currentYear = new Date().getFullYear();
+      let regNumber = `CUD/${currentYear}/${Math.floor(100000 + Math.random() * 900000)}`;
+      while (await db.member.findUnique({ where: { regNumber } })) {
+        regNumber = `CUD/${currentYear}/${Math.floor(100000 + Math.random() * 900000)}`;
+      }
+
+      const created = await db.$transaction(async (tx) => {
+        const newMember = await tx.member.create({
+          data: {
+            fullName: profile.name || candidateUsername,
+            email: normalizedEmail,
+            phoneNumber: "Not provided",
+            regNumber,
+            gender: "MALE",
+            faculty: "CASFETA",
+            department: "General",
+            course: "Member",
+            yearOfStudy: "YEAR_1",
+            profilePhoto: profile.picture || null,
+            status: "ACTIVE",
+          },
+        });
+
+        const newUser = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            username: candidateUsername,
+            passwordHash,
+            role: "MEMBER", // Strictly MEMBER (normal user)
+            memberId: newMember.id,
+            isActive: true,
+          },
+          include: { member: true },
+        });
+
+        return newUser;
+      });
+
+      user = created;
+
+      await auditLog({
+        actorId: user.memberId,
+        action: "CREATE",
+        module: "AUTH",
+        entityId: user.id,
+        entityType: "User",
+        description: `New user '${user.username}' auto-registered via Google with role 'MEMBER'.`,
+        metadata: { username: user.username, email: user.email, role: user.role, authMethod: "google" },
+      });
+    }
+
+    if (!user.isActive) {
+      console.warn(`[Google OAuth] User account is deactivated: ${profile.email}`);
+      return NextResponse.redirect(`${appUrl}?error=google_denied`);
     }
 
     // ── Step 4: Create session & update last login ────────────────────

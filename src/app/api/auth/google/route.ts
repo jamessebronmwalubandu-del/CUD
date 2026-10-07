@@ -2,13 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+function getOrigin(req: NextRequest): string {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  const host = req.headers.get("host");
+  if (host) {
+    const proto = host.includes("localhost") ? "http" : "https";
+    return `${proto}://${host}`;
+  }
+  return req.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || "https://casfeta-cud.vercel.app";
+}
+
 /**
  * GET /api/auth/google
  * Redirects the browser to Google's OAuth consent screen.
  */
 export function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin || "http://localhost:3000";
+  const appUrl = getOrigin(req);
 
   if (!clientId) {
     console.error("[Google OAuth] GOOGLE_CLIENT_ID is not set in environment variables.");

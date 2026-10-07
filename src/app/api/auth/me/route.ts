@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ok, unauthorized, badRequest, withErrorHandler } from "@/lib/utils/api";
-import type { Member } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -89,7 +88,7 @@ const PATCH = withErrorHandler(async (req: NextRequest) => {
   });
 
   // Update Member record if linked
-  let updatedMember: Member | null = null;
+  let updatedMember: Awaited<ReturnType<typeof db.member.update>> | null = null;
   if (current.member) {
     updatedMember = await db.member.update({
       where: { id: current.member.id },

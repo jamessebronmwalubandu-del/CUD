@@ -13,6 +13,13 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signIn: (identifier: string, password: string) => Promise<SessionUser>;
+  signUp: (data: {
+    fullName: string;
+    email: string;
+    username: string;
+    password: string;
+    phoneNumber?: string;
+  }) => Promise<SessionUser>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -82,6 +89,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return json.data.user as SessionUser;
   }, []);
 
+  const signUp = useCallback(
+    async (data: {
+      fullName: string;
+      email: string;
+      username: string;
+      password: string;
+      phoneNumber?: string;
+    }) => {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "same-origin",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? "Registration failed");
+      }
+      const result = await fetchMe();
+      setState({
+        user: result?.user ?? null,
+        member: result?.member ?? null,
+        loading: false,
+      });
+      return json.data.user as SessionUser;
+    },
+    []
+  );
+
   const signOut = useCallback(async () => {
     await fetch("/api/auth/logout", {
       method: "POST",
@@ -91,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut, refresh }}>
+    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, refresh }}>
       {children}
     </AuthContext.Provider>
   );
