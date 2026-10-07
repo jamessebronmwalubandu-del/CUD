@@ -1,11 +1,18 @@
-/**
- * CUD Management System — seed script.
- * Run with: bun run scripts/seed.ts
- */
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { PrismaNeonHTTP } from "@prisma/adapter-neon";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+function getPrismaInstance() {
+  const connectionString = process.env.DATABASE_URL;
+  if (connectionString?.startsWith("postgres")) {
+    const adapter = new PrismaNeonHTTP(connectionString, {});
+    return new PrismaClient({ adapter } as any);
+  }
+  return new PrismaClient();
+}
+
+const prisma = getPrismaInstance();
 
 async function main() {
   console.log("🌱 Seeding CUD Management System...");
@@ -14,24 +21,22 @@ async function main() {
   // 0. Clean slate (preserve nothing — this is a fresh install)
   // ----------------------------------------------------------------
   console.log("🧹 Cleaning existing data...");
-  await Promise.all([
-    prisma.auditLog.deleteMany(),
-    prisma.notification.deleteMany(),
-    prisma.comment.deleteMany(),
-    prisma.announcement.deleteMany(),
-    prisma.eventRegistration.deleteMany(),
-    prisma.event.deleteMany(),
-    prisma.attendanceRecord.deleteMany(),
-    prisma.attendanceSession.deleteMany(),
-    prisma.document.deleteMany(),
-    prisma.ministryMember.deleteMany(),
-    prisma.ministry.deleteMany(),
-    prisma.memberSkill.deleteMany(),
-    prisma.skill.deleteMany(),
-    prisma.user.deleteMany(),
-    prisma.member.deleteMany(),
-    prisma.systemSetting.deleteMany(),
-  ]);
+  await prisma.auditLog.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.comment.deleteMany();
+  await prisma.announcement.deleteMany();
+  await prisma.eventRegistration.deleteMany();
+  await prisma.event.deleteMany();
+  await prisma.attendanceRecord.deleteMany();
+  await prisma.attendanceSession.deleteMany();
+  await prisma.document.deleteMany();
+  await prisma.ministryMember.deleteMany();
+  await prisma.ministry.deleteMany();
+  await prisma.memberSkill.deleteMany();
+  await prisma.skill.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.member.deleteMany();
+  await prisma.systemSetting.deleteMany();
 
   // ----------------------------------------------------------------
   // 1. Skills catalogue
@@ -88,22 +93,22 @@ async function main() {
   // ----------------------------------------------------------------
   const membersData = [
     {
-      fullName: "Daniel Mwangi",
-      regNumber: "CUD/001/2022",
-      email: "chairman@cud.ac.ke",
+      fullName: "James Sebron Mwalubandu",
+      regNumber: "CUD/ADMIN/001",
+      email: "jamessebronmwalubandu@gmail.com",
       phoneNumber: "+254712000001",
       gender: "MALE",
-      faculty: "School of Theology",
-      department: "Pastoral Studies",
-      course: "Bachelor of Theology",
+      faculty: "Administration",
+      department: "System",
+      course: "Administrator",
       yearOfStudy: "YEAR_3",
       hostel: "Hallelujah Hostel",
       homeRegion: "Nairobi",
       emergencyContact: "+254722000001",
-      biography: "Chairman of CASFETA CUD Chapter. Passionate about discipleship and worship.",
+      biography: "Super Administrator of CASFETA CUD Chapter.",
       role: "SUPER_ADMIN",
-      username: "chairman",
-      password: "CUD@2024",
+      username: "password",
+      password: "password",
       skills: ["Worship Singing", "Public Speaking", "Prayer Intercession", "Bible Teaching"],
       ministryLead: "Praise & Worship",
     },
@@ -123,7 +128,7 @@ async function main() {
       biography: "Vice Chair. Committed to mentoring young women in faith.",
       role: "SUPER_ADMIN",
       username: "vicechair",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Prayer Intercession", "Counselling", "Event Planning"],
       ministryLead: "Prayer Ministry",
     },
@@ -143,7 +148,7 @@ async function main() {
       biography: "Secretary. Detail-oriented record-keeper.",
       role: "SUPER_ADMIN",
       username: "secretary",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Public Speaking", "Event Planning"],
       ministryLead: null,
     },
@@ -163,7 +168,7 @@ async function main() {
       biography: "Treasurer. Steward of fellowship finances.",
       role: "SUPER_ADMIN",
       username: "treasurer",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Event Planning", "Public Speaking"],
       ministryLead: null,
     },
@@ -183,7 +188,7 @@ async function main() {
       biography: "Fellowship Pastor. Provides spiritual oversight.",
       role: "SUPER_ADMIN",
       username: "pastor",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Bible Teaching", "Counselling", "Prayer Intercession", "Public Speaking"],
       ministryLead: "Bible Study",
     },
@@ -203,7 +208,7 @@ async function main() {
       biography: "ICT Administrator. Maintains the digital systems.",
       role: "SUPER_ADMIN",
       username: "ictadmin",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Sound Engineering", "Video Editing", "Graphic Design", "Photography"],
       ministryLead: "Media & Tech",
     },
@@ -223,7 +228,7 @@ async function main() {
       biography: "Worship leader with a heart for revival.",
       role: "ADMIN",
       username: "worshiplead",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Worship Singing", "Acoustic Guitar", "Keyboard / Piano"],
       ministryLead: "Praise & Worship",
     },
@@ -243,7 +248,7 @@ async function main() {
       biography: "Prayer coordinator.",
       role: "ADMIN",
       username: "prayerlead",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Prayer Intercession", "Counselling"],
       ministryLead: "Prayer Ministry",
     },
@@ -263,7 +268,7 @@ async function main() {
       biography: "Passionate about reaching the lost.",
       role: "ADMIN",
       username: "evanglead",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Evangelism", "Public Speaking", "Drama / Acting"],
       ministryLead: "Evangelism Ministry",
     },
@@ -283,7 +288,7 @@ async function main() {
       biography: "Leads the media team.",
       role: "ADMIN",
       username: "medialead",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Video Editing", "Graphic Design", "Sound Engineering"],
       ministryLead: "Media & Tech",
     },
@@ -303,7 +308,7 @@ async function main() {
       biography: "Member of the worship team (drummer).",
       role: "MEMBER",
       username: "benjamin",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Drums", "Sound Engineering"],
       ministryLead: null,
     },
@@ -323,7 +328,7 @@ async function main() {
       biography: "Active in drama and spoken word.",
       role: "MEMBER",
       username: "joy",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Drama / Acting", "Spoken Word"],
       ministryLead: null,
     },
@@ -343,7 +348,7 @@ async function main() {
       biography: "Usher and first-aid responder.",
       role: "MEMBER",
       username: "aaron",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Ushering", "First Aid"],
       ministryLead: null,
     },
@@ -363,7 +368,7 @@ async function main() {
       biography: "Worship singer and songwriter.",
       role: "MEMBER",
       username: "sarah",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Worship Singing", "Keyboard / Piano"],
       ministryLead: null,
     },
@@ -383,7 +388,7 @@ async function main() {
       biography: "Bible study facilitator.",
       role: "MEMBER",
       username: "michael",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Bible Teaching", "Public Speaking"],
       ministryLead: null,
     },
@@ -403,7 +408,7 @@ async function main() {
       biography: "Intercessor and counsellor.",
       role: "MEMBER",
       username: "rebecca",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Prayer Intercession", "Counselling", "First Aid"],
       ministryLead: null,
     },
@@ -423,7 +428,7 @@ async function main() {
       biography: "Bass guitarist in worship team.",
       role: "MEMBER",
       username: "david",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Bass Guitar", "Sound Engineering"],
       ministryLead: null,
     },
@@ -443,7 +448,7 @@ async function main() {
       biography: "Evangelism team member.",
       role: "MEMBER",
       username: "hannah",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Evangelism", "Cooking", "Ushering"],
       ministryLead: null,
     },
@@ -463,7 +468,7 @@ async function main() {
       biography: "Media team — video and livestream.",
       role: "MEMBER",
       username: "stephen",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Video Editing", "Photography"],
       ministryLead: null,
     },
@@ -483,14 +488,14 @@ async function main() {
       biography: "Usher and protocol team.",
       role: "MEMBER",
       username: "naomi",
-      password: "CUD@2024",
+      password: "password",
       skills: ["Ushering", "Cooking"],
       ministryLead: null,
     },
   ];
 
   // Hash the shared password once
-  const passwordHash = await bcrypt.hash("CUD@2024", 10);
+  const passwordHash = await bcrypt.hash("password", 10);
 
   type CreatedMember = {
     id: string;
@@ -572,44 +577,43 @@ async function main() {
     "Bible Study": ["Michael Otieno"],
   };
 
+  const ministryMemberData: { ministryId: string; memberId: string; role: string }[] = [];
   for (const [ministryName, memberNames] of Object.entries(ministryBuckets)) {
     const ministry = ministries.find((m) => m.name === ministryName);
     if (!ministry) continue;
     for (const name of memberNames) {
       const cm = createdMembers.find((m) => m.fullName === name);
       if (!cm) continue;
-      const exists = await prisma.ministryMember.findUnique({
-        where: { ministryId_memberId: { ministryId: ministry.id, memberId: cm.id } },
-      });
-      if (!exists) {
-        await prisma.ministryMember.create({
-          data: { ministryId: ministry.id, memberId: cm.id, role: "MEMBER" },
-        });
-      }
+      ministryMemberData.push({ ministryId: ministry.id, memberId: cm.id, role: "MEMBER" });
     }
+  }
+  if (ministryMemberData.length > 0) {
+    await prisma.ministryMember.createMany({ data: ministryMemberData, skipDuplicates: true });
   }
   console.log("✓ Assigned members to ministries");
 
   // ----------------------------------------------------------------
   // 5. Member skills (mostly approved; a few pending for demo)
   // ----------------------------------------------------------------
-  const skillByName = new Map(skills.map((s) => [s.name, s]));
+  const skillByName = new Map((skills as any[]).map((s: any) => [s.name, s]));
+  const memberSkillData: any[] = [];
   for (const cm of createdMembers) {
     for (const skillName of cm.skillNames) {
       const skill = skillByName.get(skillName);
       if (!skill) continue;
       const status = Math.random() < 0.85 ? "APPROVED" : "PENDING";
-      await prisma.memberSkill.create({
-        data: {
-          memberId: cm.id,
-          skillId: skill.id,
-          status,
-          proficiency: ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"][Math.floor(Math.random() * 4)],
-          reviewedAt: status === "APPROVED" ? new Date() : null,
-          reviewedBy: status === "APPROVED" ? createdMembers[0].id : null,
-        },
+      memberSkillData.push({
+        memberId: cm.id,
+        skillId: skill.id,
+        status,
+        proficiency: ["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"][Math.floor(Math.random() * 4)],
+        reviewedAt: status === "APPROVED" ? new Date() : null,
+        reviewedBy: status === "APPROVED" ? createdMembers[0].id : null,
       });
     }
+  }
+  if (memberSkillData.length > 0) {
+    await prisma.memberSkill.createMany({ data: memberSkillData, skipDuplicates: true });
   }
   console.log("✓ Assigned skills to members");
 
@@ -638,18 +642,20 @@ async function main() {
   }
 
   // For each session, mark ~80% of members present
+  const attendanceRecordData: any[] = [];
   for (const session of sessions) {
     for (const cm of createdMembers) {
       const present = Math.random() < 0.8;
-      await prisma.attendanceRecord.create({
-        data: {
-          sessionId: session.id,
-          memberId: cm.id,
-          present,
-          reason: present ? null : "Travel / Commitment",
-        },
+      attendanceRecordData.push({
+        sessionId: session.id,
+        memberId: cm.id,
+        present,
+        reason: present ? null : "Travel / Commitment",
       });
     }
+  }
+  if (attendanceRecordData.length > 0) {
+    await prisma.attendanceRecord.createMany({ data: attendanceRecordData, skipDuplicates: true });
   }
   console.log(`✓ Created ${sessions.length} attendance sessions with records`);
 
@@ -836,10 +842,10 @@ async function main() {
   console.log("\n🎉 Seeding complete!");
   console.log("─────────────────────────────────────────────");
   console.log("Login credentials (all accounts share the same password):");
-  console.log("  Password: CUD@2024");
+  console.log("  Password: password");
   console.log("");
   console.log("Super Admin accounts:");
-  console.log("  chairman@cud.ac.ke    (Daniel Mwangi — Chairman)");
+  console.log("  jamessebronmwalubandu@gmail.com / username: password (James Sebron Mwalubandu — Super Admin)");
   console.log("  vicechair@cud.ac.ke   (Grace Wanjiru — Vice Chair)");
   console.log("  secretary@cud.ac.ke   (Samuel Kiptoo — Secretary)");
   console.log("  treasurer@cud.ac.ke   (Mary Akinyi — Treasurer)");

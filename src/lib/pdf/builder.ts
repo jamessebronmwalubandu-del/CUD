@@ -47,7 +47,7 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN_X;
  * tables, KPI cards, headers, footers, page numbers.
  */
 export class PdfReportBuilder {
-  private doc: PDFKit.PDFDocument;
+  private doc: any;
   private options: PdfReportOptions;
   private currentPage = 1;
   private totalPagesPlaceholder: { y: number; x: number } | null = null;

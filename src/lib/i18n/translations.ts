@@ -110,7 +110,7 @@ const en: Dict = {
   "auth.welcomeBack": "Welcome back. Enter your credentials to access the dashboard.",
   "auth.emailOrUsername": "Email or Username",
   "auth.password": "Password",
-  "auth.passwordHint": "Demo: CUD@2024",
+  "auth.passwordHint": "Demo: password",
   "auth.signingIn": "Signing in…",
   "auth.showPassword": "Show password",
   "auth.hidePassword": "Hide password",
@@ -119,7 +119,7 @@ const en: Dict = {
   "auth.loginFailed": "Login failed",
   "auth.signedOut": "Signed out successfully.",
   "auth.signedIn": "Welcome back, {name}!",
-  "auth.demoAccounts": "Quick demo accounts (password: CUD@2024)",
+  "auth.demoAccounts": "Quick demo accounts (password: password)",
   "auth.brand.tagline": "Christ-centered fellowship, beautifully managed.",
   "auth.brand.description": "One secure platform for members, ministries, attendance, skills, documents, announcements, and reports — designed to empower CUD Chapter leaders and members alike.",
   "auth.brand.feature.directory": "Member Directory",
@@ -127,7 +127,7 @@ const en: Dict = {
   "auth.brand.feature.skills": "Skills & Roles",
   "auth.brand.feature.reports": "Real-time Reports",
   "auth.brand.copyright": "© {year} CASFETA — Christ Ambassadors Students Fellowship. All rights reserved.",
-  "auth.placeholder.identifier": "you@cud.ac.ke or username",
+  "auth.placeholder.identifier": "jamessebronmwalubandu@gmail.com or password",
 
   // ─────────────────────────────── Greetings ───────────────────────────────
   "greeting.morning": "Good morning",
@@ -886,7 +886,7 @@ const sw: Dict = {
   "auth.welcomeBack": "Karibu tena. Ingiza vitambulisho vyako kufikia dashibodi.",
   "auth.emailOrUsername": "Barua pepe au Jina la mtumiaji",
   "auth.password": "Nenosiri",
-  "auth.passwordHint": "Onyesho: CUD@2024",
+  "auth.passwordHint": "Onyesho: password",
   "auth.signingIn": "Inaingia…",
   "auth.showPassword": "Onesha nenosiri",
   "auth.hidePassword": "Ficha nenosiri",
@@ -895,7 +895,7 @@ const sw: Dict = {
   "auth.loginFailed": "Imeshindwa kuingia",
   "auth.signedOut": "Umetoka kwa mafanikio.",
   "auth.signedIn": "Karibu tena, {name}!",
-  "auth.demoAccounts": "Akaunti za onyesho (nenosiri: CUD@2024)",
+  "auth.demoAccounts": "Akaunti za onyesho (nenosiri: password)",
   "auth.brand.tagline": "Ushirika wa Kikristo, unaosimamiwa kwa ustadi.",
   "auth.brand.description": "Jukwaa moja salama la wanachama, wizara, mahudhurio, ujuzi, nyaraka, matangazo na ripoti — lililoundwa kuwawezesha viongozi na wanachama wa Tawi la CUD.",
   "auth.brand.feature.directory": "Orodha ya Wanachama",
@@ -903,7 +903,7 @@ const sw: Dict = {
   "auth.brand.feature.skills": "Ujuzi na Wadhifa",
   "auth.brand.feature.reports": "Ripoti za Wakati Halisi",
   "auth.brand.copyright": "© {year} CASFETA — Christ Ambassadors Students Fellowship. Haki zote zimehifadhiwa.",
-  "auth.placeholder.identifier": "wewe@cud.ac.ke au jina la mtumiaji",
+  "auth.placeholder.identifier": "jamessebronmwalubandu@gmail.com au password",
 
   // ─────────────────────────────── Greetings ───────────────────────────────
   "greeting.morning": "Asubuha njema",

@@ -3,9 +3,9 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { ROLES } from "@/lib/rbac/permissions";
 
-const SESSION_COOKIE = "cud_session";
-const SESSION_SECRET = process.env.SESSION_SECRET || "cud-management-system-dev-secret-key-change-in-production";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+export const SESSION_COOKIE = "cud_session";
+export const SESSION_SECRET = process.env.SESSION_SECRET || "cud-management-system-dev-secret-key-change-in-production";
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 export interface SessionPayload {
   userId: string;
@@ -14,6 +14,28 @@ export interface SessionPayload {
   email: string;
   username: string;
   name: string;
+}
+
+/**
+ * Generate a signed session JWT token for a user.
+ */
+export function generateSessionToken(user: {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  memberId: string | null;
+  name: string;
+}): string {
+  const payload: SessionPayload = {
+    userId: user.id,
+    memberId: user.memberId,
+    role: user.role,
+    email: user.email,
+    username: user.username,
+    name: user.name,
+  };
+  return jwt.sign(payload, SESSION_SECRET, { expiresIn: `${SESSION_MAX_AGE}s` });
 }
 
 /**
@@ -27,16 +49,8 @@ export async function createSession(user: {
   role: string;
   memberId: string | null;
   name: string;
-}): Promise<void> {
-  const payload: SessionPayload = {
-    userId: user.id,
-    memberId: user.memberId,
-    role: user.role,
-    email: user.email,
-    username: user.username,
-    name: user.name,
-  };
-  const token = jwt.sign(payload, SESSION_SECRET, { expiresIn: `${SESSION_MAX_AGE}s` });
+}): Promise<string> {
+  const token = generateSessionToken(user);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -45,6 +59,7 @@ export async function createSession(user: {
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });
+  return token;
 }
 
 /**
@@ -97,7 +112,14 @@ export async function getCurrentUser(): Promise<{
   }
 
   const member = session.memberId
-    ? await db.member.findUnique({ where: { id: session.memberId } })
+    ? await db.member.findUnique({
+        where: { id: session.memberId },
+        include: {
+          ministries: {
+            include: { ministry: true },
+          },
+        },
+      })
     : null;
 
   return { user: session, member };

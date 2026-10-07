@@ -7,7 +7,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  serverExternalPackages: ["pdfkit", "quickchart-js"],
+  serverExternalPackages: [
+    "pdfkit",
+    "quickchart-js",
+    "ws",
+    "@neondatabase/serverless",
+    "@prisma/adapter-neon",
+  ],
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",
