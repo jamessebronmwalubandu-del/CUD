@@ -69,37 +69,40 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     regNumber = `CUD/${currentYear}/${Math.floor(100000 + Math.random() * 900000)}`;
   }
 
-  // Create Member and User in a transaction.
+  // Create Member and User directly (no transaction required for HTTP mode)
   // Note: Role is strictly hardcoded to "MEMBER".
-  const { user, member } = await db.$transaction(async (tx) => {
-    const newMember = await tx.member.create({
-      data: {
-        fullName,
-        email,
-        phoneNumber: phoneNumber || "Not provided",
-        regNumber,
-        gender: "MALE", // Default; member can update in their profile
-        faculty: "CASFETA",
-        department: "General",
-        course: "Member",
-        yearOfStudy: "YEAR_1",
-        status: "ACTIVE",
-      },
-    });
+  const member = await db.member.create({
+    data: {
+      fullName,
+      email,
+      phoneNumber: phoneNumber || "Not provided",
+      regNumber,
+      gender: "MALE", // Default; member can update in their profile
+      faculty: "CASFETA",
+      department: "General",
+      course: "Member",
+      yearOfStudy: "YEAR_1",
+      status: "ACTIVE",
+    },
+  });
 
-    const newUser = await tx.user.create({
+  let user;
+  try {
+    user = await db.user.create({
       data: {
         email,
         username,
         passwordHash,
         role: "MEMBER", // Strictly normal member role!
-        memberId: newMember.id,
+        memberId: member.id,
         isActive: true,
       },
     });
-
-    return { user: newUser, member: newMember };
-  });
+  } catch (err) {
+    // Clean up created member record if user creation failed
+    await db.member.delete({ where: { id: member.id } }).catch(() => null);
+    throw err;
+  }
 
   // Create session so the user is immediately logged in
   await createSession({

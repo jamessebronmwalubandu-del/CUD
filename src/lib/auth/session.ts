@@ -90,10 +90,7 @@ export async function getSession(): Promise<SessionPayload | null> {
  * Variant of getSession that also verifies the user still exists and is active in DB.
  * Use this for protected route handlers and server actions.
  */
-export async function getCurrentUser(): Promise<{
-  user: SessionPayload;
-  member: Awaited<ReturnType<typeof db.member.findUnique>>;
-} | null> {
+export async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
 

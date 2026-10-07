@@ -60,11 +60,19 @@ const PUT = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ i
   if (Array.isArray(body.records)) {
     for (const r of body.records) {
       if (!r.memberId) continue;
-      await db.attendanceRecord.upsert({
+      const existingRecord = await db.attendanceRecord.findUnique({
         where: { sessionId_memberId: { sessionId: id, memberId: r.memberId } },
-        update: { present: !!r.present, reason: r.reason ?? null },
-        create: { sessionId: id, memberId: r.memberId, present: !!r.present, reason: r.reason ?? null },
       });
+      if (existingRecord) {
+        await db.attendanceRecord.update({
+          where: { sessionId_memberId: { sessionId: id, memberId: r.memberId } },
+          data: { present: !!r.present, reason: r.reason ?? null },
+        });
+      } else {
+        await db.attendanceRecord.create({
+          data: { sessionId: id, memberId: r.memberId, present: !!r.present, reason: r.reason ?? null },
+        });
+      }
     }
   }
 

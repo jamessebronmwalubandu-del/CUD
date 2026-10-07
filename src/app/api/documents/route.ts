@@ -113,7 +113,6 @@ const POST = withErrorHandler(async (req: NextRequest) => {
       accessLevel,
       uploadedById: current.user.memberId,
     },
-    include: { ministry: true },
   });
 
   await auditLog({
@@ -125,7 +124,12 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     description: `Uploaded document '${title}' (${file.name}).`,
   });
 
-  return created(document);
+  const fullDoc = await db.document.findUnique({
+    where: { id: document.id },
+    include: { ministry: true },
+  });
+
+  return created(fullDoc ?? document);
 });
 
 export { GET, POST };

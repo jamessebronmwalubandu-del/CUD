@@ -52,16 +52,23 @@ const POST = withErrorHandler(async (req: NextRequest) => {
       leaderId: body.leaderId || null,
       assistantLeaderId: body.assistantLeaderId || null,
     },
-    include: { leader: true, assistantLeader: true },
   });
 
   // If leader provided, also add as MinistryMember with LEADER role
   if (body.leaderId) {
-    await db.ministryMember.upsert({
+    const existingMM = await db.ministryMember.findUnique({
       where: { ministryId_memberId: { ministryId: ministry.id, memberId: body.leaderId } },
-      update: { role: "LEADER" },
-      create: { ministryId: ministry.id, memberId: body.leaderId, role: "LEADER" },
     });
+    if (existingMM) {
+      await db.ministryMember.update({
+        where: { ministryId_memberId: { ministryId: ministry.id, memberId: body.leaderId } },
+        data: { role: "LEADER" },
+      });
+    } else {
+      await db.ministryMember.create({
+        data: { ministryId: ministry.id, memberId: body.leaderId, role: "LEADER" },
+      });
+    }
   }
 
   await auditLog({
@@ -73,7 +80,12 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     description: `Created ministry '${ministry.name}'.`,
   });
 
-  return created(ministry);
+  const fullMinistry = await db.ministry.findUnique({
+    where: { id: ministry.id },
+    include: { leader: true, assistantLeader: true },
+  });
+
+  return created(fullMinistry ?? ministry);
 });
 
 export { GET, POST };

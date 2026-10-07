@@ -70,7 +70,6 @@ const POST = withErrorHandler(async (req: NextRequest) => {
       status: "PENDING",
       proficiency: body.proficiency || null,
     },
-    include: { skill: true },
   });
 
   await auditLog({
@@ -82,7 +81,12 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     description: `Requested skill '${skill.name}'.`,
   });
 
-  return created(ms);
+  const fullMs = await db.memberSkill.findUnique({
+    where: { id: ms.id },
+    include: { skill: true },
+  });
+
+  return created(fullMs ?? ms);
 });
 
 export { GET, POST };

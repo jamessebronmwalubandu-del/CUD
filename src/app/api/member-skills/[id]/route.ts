@@ -48,9 +48,13 @@ const PATCH = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{
   }
   if (body.proficiency) data.proficiency = body.proficiency;
 
-  const updated = await db.memberSkill.update({
+  await db.memberSkill.update({
     where: { id },
     data,
+  });
+
+  const updated = await db.memberSkill.findUnique({
+    where: { id },
     include: { skill: true, member: true },
   });
 

@@ -24,11 +24,15 @@ const PUT = withErrorHandler(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
   if (!body?.key || typeof body.value !== "string") return badRequest("key and value are required.");
 
-  const updated = await db.systemSetting.upsert({
-    where: { key: body.key },
-    update: { value: body.value, description: body.description ?? undefined, updatedBy: current.user.memberId },
-    create: { key: body.key, value: body.value, description: body.description ?? null, updatedBy: current.user.memberId },
-  });
+  const existing = await db.systemSetting.findUnique({ where: { key: body.key } });
+  const updated = existing
+    ? await db.systemSetting.update({
+        where: { key: body.key },
+        data: { value: body.value, description: body.description ?? undefined, updatedBy: current.user.memberId },
+      })
+    : await db.systemSetting.create({
+        data: { key: body.key, value: body.value, description: body.description ?? null, updatedBy: current.user.memberId },
+      });
 
   await auditLog({
     actorId: current.user.memberId,

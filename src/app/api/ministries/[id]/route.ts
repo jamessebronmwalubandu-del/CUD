@@ -49,7 +49,7 @@ const PUT = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ i
   const body = await req.json().catch(() => null);
   if (!body) return badRequest("Invalid body.");
 
-  const updated = await db.ministry.update({
+  await db.ministry.update({
     where: { id },
     data: {
       name: body.name ?? existing.name,
@@ -58,17 +58,24 @@ const PUT = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ i
       leaderId: body.leaderId === undefined ? existing.leaderId : body.leaderId || null,
       assistantLeaderId: body.assistantLeaderId === undefined ? existing.assistantLeaderId : body.assistantLeaderId || null,
     },
-    include: { leader: true, assistantLeader: true },
   });
 
   // Sync leader/assistant as MinistryMembers
   if (body.leaderId !== undefined) {
     if (body.leaderId) {
-      await db.ministryMember.upsert({
+      const existingMM = await db.ministryMember.findUnique({
         where: { ministryId_memberId: { ministryId: id, memberId: body.leaderId } },
-        update: { role: "LEADER" },
-        create: { ministryId: id, memberId: body.leaderId, role: "LEADER" },
       });
+      if (existingMM) {
+        await db.ministryMember.update({
+          where: { ministryId_memberId: { ministryId: id, memberId: body.leaderId } },
+          data: { role: "LEADER" },
+        });
+      } else {
+        await db.ministryMember.create({
+          data: { ministryId: id, memberId: body.leaderId, role: "LEADER" },
+        });
+      }
     }
     if (existing.leaderId && existing.leaderId !== body.leaderId) {
       await db.ministryMember.updateMany({
@@ -78,13 +85,18 @@ const PUT = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ i
     }
   }
 
+  const updated = await db.ministry.findUnique({
+    where: { id },
+    include: { leader: true, assistantLeader: true },
+  });
+
   await auditLog({
     actorId: current.user.memberId,
     action: "UPDATE",
     module: "MINISTRIES",
     entityId: id,
     entityType: "Ministry",
-    description: `Updated ministry '${updated.name}'.`,
+    description: `Updated ministry '${updated?.name ?? id}'.`,
   });
 
   return ok(updated);
@@ -126,14 +138,26 @@ const POST = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ 
   const ministry = await db.ministry.findUnique({ where: { id } });
   if (!ministry) return notFound("Ministry not found.");
 
-  const mm = await db.ministryMember.upsert({
+  const existingMM = await db.ministryMember.findUnique({
     where: { ministryId_memberId: { ministryId: id, memberId: body.memberId } },
-    update: { role: body.role || "MEMBER" },
-    create: {
-      ministryId: id,
-      memberId: body.memberId,
-      role: body.role || "MEMBER",
-    },
+  });
+  if (existingMM) {
+    await db.ministryMember.update({
+      where: { ministryId_memberId: { ministryId: id, memberId: body.memberId } },
+      data: { role: body.role || "MEMBER" },
+    });
+  } else {
+    await db.ministryMember.create({
+      data: {
+        ministryId: id,
+        memberId: body.memberId,
+        role: body.role || "MEMBER",
+      },
+    });
+  }
+
+  const mm = await db.ministryMember.findUnique({
+    where: { ministryId_memberId: { ministryId: id, memberId: body.memberId } },
     include: { member: true },
   });
 
@@ -143,7 +167,7 @@ const POST = withErrorHandler(async (req: NextRequest, ctx: { params: Promise<{ 
     module: "MINISTRIES",
     entityId: id,
     entityType: "MinistryMember",
-    description: `Added ${mm.member.fullName} to ministry '${ministry.name}'.`,
+    description: `Added ${mm?.member?.fullName ?? body.memberId} to ministry '${ministry.name}'.`,
   });
 
   return ok(mm);

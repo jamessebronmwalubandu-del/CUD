@@ -64,7 +64,6 @@ const POST = withErrorHandler(async (req: NextRequest) => {
       capacity: body.capacity ? Number(body.capacity) : null,
       status: body.status || "UPCOMING",
     },
-    include: { organizer: true },
   });
 
   await auditLog({
@@ -76,7 +75,12 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     description: `Created event '${event.title}'.`,
   });
 
-  return created(event);
+  const fullEvent = await db.event.findUnique({
+    where: { id: event.id },
+    include: { organizer: true },
+  });
+
+  return created(fullEvent ?? event);
 });
 
 export { GET, POST };

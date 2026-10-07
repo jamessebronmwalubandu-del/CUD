@@ -132,24 +132,24 @@ export async function GET(req: NextRequest) {
         regNumber = `CUD/${currentYear}/${Math.floor(100000 + Math.random() * 900000)}`;
       }
 
-      const created = await db.$transaction(async (tx) => {
-        const newMember = await tx.member.create({
-          data: {
-            fullName: profile.name || candidateUsername,
-            email: normalizedEmail,
-            phoneNumber: "Not provided",
-            regNumber,
-            gender: "MALE",
-            faculty: "CASFETA",
-            department: "General",
-            course: "Member",
-            yearOfStudy: "YEAR_1",
-            profilePhoto: profile.picture || null,
-            status: "ACTIVE",
-          },
-        });
+      const newMember = await db.member.create({
+        data: {
+          fullName: profile.name || candidateUsername,
+          email: normalizedEmail,
+          phoneNumber: "Not provided",
+          regNumber,
+          gender: "MALE",
+          faculty: "CASFETA",
+          department: "General",
+          course: "Member",
+          yearOfStudy: "YEAR_1",
+          profilePhoto: profile.picture || null,
+          status: "ACTIVE",
+        },
+      });
 
-        const newUser = await tx.user.create({
+      try {
+        user = await db.user.create({
           data: {
             email: normalizedEmail,
             username: candidateUsername,
@@ -160,11 +160,10 @@ export async function GET(req: NextRequest) {
           },
           include: { member: true },
         });
-
-        return newUser;
-      });
-
-      user = created;
+      } catch (err) {
+        await db.member.delete({ where: { id: newMember.id } }).catch(() => null);
+        throw err;
+      }
 
       await auditLog({
         actorId: user.memberId,
