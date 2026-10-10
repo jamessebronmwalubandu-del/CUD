@@ -65,7 +65,10 @@ const GET = withErrorHandler(async (req: NextRequest) => {
   const documents = await db.document.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    include: { ministry: true, uploadedBy: true },
+    include: {
+      ministry: { select: { id: true, name: true, color: true } },
+      uploadedBy: { select: { id: true, fullName: true } },
+    },
   });
 
   return ok({ items: documents });

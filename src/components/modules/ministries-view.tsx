@@ -20,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Building2, Plus, Pencil, Trash2, Search, Users, FileText, CalendarCheck, Megaphone, Crown, UserCog,
+  Building2, Plus, Pencil, Trash2, Search, Users, FileText, CalendarCheck, Megaphone, Crown, UserCog, UserPlus, UserMinus, CheckCircle2,
 } from "lucide-react";
 import { api, initials, label, LABELS, timeAgo } from "@/lib/utils/client";
 import type { Ministry, Member, MinistryRole } from "@/types";
@@ -107,7 +107,15 @@ export function MinistriesView() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {ministries.map((m) => (
-            <MinistryCard key={m.id} ministry={m} isAdmin={isAdmin} onOpen={() => openDetail(m)} onEdit={() => { setEditing(m); setShowForm(true); }} onDelete={() => setDeleting(m)} />
+            <MinistryCard
+              key={m.id}
+              ministry={m}
+              isAdmin={isAdmin}
+              onOpen={() => openDetail(m)}
+              onEdit={() => { setEditing(m); setShowForm(true); }}
+              onDelete={() => setDeleting(m)}
+              onChanged={load}
+            />
           ))}
         </div>
       )}
@@ -176,60 +184,112 @@ export function MinistriesView() {
 }
 
 function MinistryCard({
-  ministry, isAdmin, onOpen, onEdit, onDelete,
+  ministry, isAdmin, onOpen, onEdit, onDelete, onChanged,
 }: {
-  ministry: MinistryList; isAdmin: boolean; onOpen: () => void; onEdit: () => void; onDelete: () => void;
+  ministry: MinistryList; isAdmin: boolean; onOpen: () => void; onEdit: () => void; onDelete: () => void; onChanged: () => void;
 }) {
   const { t } = useI18n();
+  const { member } = useAuth();
+  const [loadingAction, setLoadingAction] = useState(false);
   const color = ministry.color ?? "#0f766e";
+
+  const isJoined = member?.id ? ministry.members?.some((m) => m.memberId === member.id) : false;
+
+  const handleJoin = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!member) return;
+    setLoadingAction(true);
+    try {
+      await api.post(`/api/ministries/${ministry.id}/join`, {});
+      toast.success(`Umejiunga na ${ministry.name} kikamilifu!`);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to join ministry");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleLeave = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!member) return;
+    setLoadingAction(true);
+    try {
+      await api.post(`/api/ministries/${ministry.id}/leave`, {});
+      toast.success(`Umejitoa kwenye ${ministry.name}.`);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to leave ministry");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
   return (
-    <Card className="card-hover overflow-hidden group">
-      <div className="h-1.5" style={{ backgroundColor: color }} />
-      <CardContent className="p-5 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <button onClick={onOpen} className="text-left min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-              <p className="font-serif font-semibold text-lg leading-tight truncate">{ministry.name}</p>
-            </div>
-            {ministry.description && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{ministry.description}</p>
+    <Card className="card-hover overflow-hidden group flex flex-col justify-between">
+      <div>
+        <div className="h-1.5" style={{ backgroundColor: color }} />
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <button onClick={onOpen} className="text-left min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+                <p className="font-serif font-semibold text-lg leading-tight truncate">{ministry.name}</p>
+              </div>
+              {ministry.description && (
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{ministry.description}</p>
+              )}
+            </button>
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0">⋯</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-3.5 w-3.5" /> {t("common.edit")}</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+                    <Trash2 className="mr-2 h-3.5 w-3.5" /> {t("common.delete")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </button>
-          {isAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0">⋯</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-3.5 w-3.5" /> {t("common.edit")}</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
-                  <Trash2 className="mr-2 h-3.5 w-3.5" /> {t("common.delete")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <Crown className="h-4 w-4 text-amber-500 shrink-0" />
-            <span className="text-xs text-muted-foreground w-20">{t("ministries.leader")}</span>
-            <span className="font-medium truncate">{ministry.leader?.fullName ?? "—"}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <UserCog className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground w-20">{t("ministries.assistant")}</span>
-            <span className="font-medium truncate">{ministry.assistantLeader?.fullName ?? "—"}</span>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-          <Stat icon={Users} value={ministry.members?.length ?? 0} label={t("ministries.members")} />
-          <Stat icon={FileText} value={ministry._count?.documents ?? 0} label={t("ministries.documents")} />
-          <Stat icon={CalendarCheck} value={ministry._count?.attendanceSessions ?? 0} label={t("ministries.sessions")} />
-        </div>
-      </CardContent>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-500 shrink-0" />
+              <span className="text-xs text-muted-foreground w-20">{t("ministries.leader")}</span>
+              <span className="font-medium truncate">{ministry.leader?.fullName ?? "—"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <UserCog className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground w-20">{t("ministries.assistant")}</span>
+              <span className="font-medium truncate">{ministry.assistantLeader?.fullName ?? "—"}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+            <Stat icon={Users} value={ministry.members?.length ?? 0} label={t("ministries.members")} />
+            <Stat icon={FileText} value={ministry._count?.documents ?? 0} label={t("ministries.documents")} />
+            <Stat icon={CalendarCheck} value={ministry._count?.attendanceSessions ?? 0} label={t("ministries.sessions")} />
+          </div>
+        </CardContent>
+      </div>
+
+      <div className="px-5 pb-4 pt-1 flex items-center justify-between border-t border-border/40 bg-muted/20">
+        <Badge variant={isJoined ? "default" : "outline"} className={`text-[10px] ${isJoined ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}>
+          {isJoined ? "Umo Mule (Joined)" : "Bado Hujajiunga"}
+        </Badge>
+        {isJoined ? (
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={handleLeave} disabled={loadingAction}>
+            <UserMinus className="h-3.5 w-3.5 mr-1" /> Jitoe
+          </Button>
+        ) : (
+          <Button size="sm" className="h-7 text-xs gap-1.5 shadow-sm" onClick={handleJoin} disabled={loadingAction}>
+            <UserPlus className="h-3.5 w-3.5" /> Jiunge na Idara
+          </Button>
+        )}
+      </div>
     </Card>
   );
 }

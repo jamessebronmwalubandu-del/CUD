@@ -240,6 +240,21 @@ export interface SystemSetting {
   updatedBy: string | null;
 }
 
+export interface Feedback {
+  id: string;
+  memberId: string | null;
+  category: "GENERAL" | "LEADERSHIP" | "FELLOWSHIP_SERVICES" | "TECHNICAL" | "WELFARE" | "OTHER";
+  subject: string;
+  content: string;
+  isAnonymous: boolean;
+  status: "PENDING" | "REVIEWED" | "RESOLVED" | "ARCHIVED";
+  adminResponse: string | null;
+  createdAt: string;
+  updatedAt: string;
+  member?: Member | null;
+}
+
+
 export interface UserAccount {
   id: string;
   email: string;

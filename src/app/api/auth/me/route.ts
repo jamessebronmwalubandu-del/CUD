@@ -6,7 +6,7 @@ import { ok, unauthorized, badRequest, withErrorHandler } from "@/lib/utils/api"
 export const runtime = "nodejs";
 
 const GET = withErrorHandler(async () => {
-  const current = await getCurrentUser();
+  const current = await getCurrentUser({ includeMember: true });
   if (!current) return unauthorized();
   const { user, member } = current;
   return ok({
@@ -42,7 +42,7 @@ const GET = withErrorHandler(async () => {
 });
 
 const PATCH = withErrorHandler(async (req: NextRequest) => {
-  const current = await getCurrentUser();
+  const current = await getCurrentUser({ includeMember: true });
   if (!current) return unauthorized();
 
   const body = await req.json();

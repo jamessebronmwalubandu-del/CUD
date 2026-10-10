@@ -62,6 +62,7 @@ model Member {
   attendance       AttendanceRecord[]
   eventRegs        EventRegistration[]
   announcementComments Comment[]
+  feedbacks        Feedback[]
   documentsUploaded Document[]
   auditLogs        AuditLog[]
   createdAnnouncements Announcement[]
@@ -342,3 +343,27 @@ model SystemSetting {
   updatedAt   DateTime @updatedAt
   updatedBy   String?
 }
+
+// ============================================================
+// FEEDBACK & SUGGESTIONS
+// ============================================================
+
+model Feedback {
+  id            String   @id @default(cuid())
+  memberId      String?
+  category      String   @default("GENERAL") // GENERAL | LEADERSHIP | FELLOWSHIP_SERVICES | TECHNICAL | WELFARE | OTHER
+  subject       String
+  content       String
+  isAnonymous   Boolean  @default(false)
+  status        String   @default("PENDING") // PENDING | REVIEWED | RESOLVED | ARCHIVED
+  adminResponse String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  member        Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+

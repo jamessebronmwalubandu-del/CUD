@@ -32,7 +32,8 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "CUD ICT Team" }],
   icons: {
-    icon: "/logo.svg",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 

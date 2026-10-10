@@ -29,6 +29,12 @@ const GET = withErrorHandler(async (req: NextRequest) => {
   if (memberId) where.memberId = memberId;
   if (status) where.status = status;
 
+  const countOnly = searchParams.get("countOnly") === "true";
+  if (countOnly) {
+    const count = await db.memberSkill.count({ where });
+    return ok({ count });
+  }
+
   const items = await db.memberSkill.findMany({
     where,
     include: { skill: true, member: true },

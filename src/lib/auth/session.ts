@@ -86,29 +86,57 @@ export async function getSession(): Promise<SessionPayload | null> {
   }
 }
 
+// Short-lived in-memory cache to prevent pounding Neon on every API call
+interface CachedUserStatus {
+  isActive: boolean;
+  role: "SUPER_ADMIN" | "ADMIN" | "MEMBER";
+  cachedAt: number;
+}
+const userStatusCache = new Map<string, CachedUserStatus>();
+const CACHE_TTL_MS = 60_000; // 60 seconds
+
+export function invalidateUserCache(userId?: string) {
+  if (userId) userStatusCache.delete(userId);
+  else userStatusCache.clear();
+}
+
 /**
  * Variant of getSession that also verifies the user still exists and is active in DB.
- * Use this for protected route handlers and server actions.
+ * Uses a 60-second memory cache to eliminate redundant database calls on every API request.
+ * Member record is only fetched if explicitly requested via { includeMember: true }.
  */
-export async function getCurrentUser() {
+export async function getCurrentUser(options?: { includeMember?: boolean }) {
   const session = await getSession();
   if (!session) return null;
 
-  const dbUser = await db.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, isActive: true, role: true },
-  });
-  if (!dbUser || !dbUser.isActive) {
-    await destroySession();
-    return null;
+  const now = Date.now();
+  let status = userStatusCache.get(session.userId);
+
+  if (!status || now - status.cachedAt > CACHE_TTL_MS) {
+    const dbUser = await db.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, isActive: true, role: true },
+    });
+    if (!dbUser || !dbUser.isActive) {
+      userStatusCache.delete(session.userId);
+      await destroySession();
+      return null;
+    }
+    status = {
+      isActive: dbUser.isActive,
+      role: dbUser.role as "SUPER_ADMIN" | "ADMIN" | "MEMBER",
+      cachedAt: now,
+    };
+    userStatusCache.set(session.userId, status);
   }
 
-  // Refresh role from DB in case it changed since session was issued
-  if (dbUser.role !== session.role) {
-    session.role = dbUser.role;
+  // Refresh role if changed
+  if (status.role !== session.role) {
+    session.role = status.role;
   }
 
-  const member = session.memberId
+  // Only query full member and nested ministries when specifically needed (e.g., /api/auth/me)
+  const member = (options?.includeMember && session.memberId)
     ? await db.member.findUnique({
         where: { id: session.memberId },
         include: {

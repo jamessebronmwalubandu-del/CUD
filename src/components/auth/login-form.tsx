@@ -60,12 +60,12 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
-  google_denied: "Google sign-in was cancelled.",
-  google_no_code: "Google did not return an authorisation code.",
-  google_token_failed: "Failed to exchange Google token. Please verify configuration.",
-  google_profile_failed: "Could not fetch your Google profile.",
+  google_denied: "Google sign-in blocked. If the app is in 'Testing' mode, add your Google account as a test user in Google Cloud Console → OAuth consent screen → Test users.",
+  google_no_code: "Google did not return an authorisation code. Please try again.",
+  google_token_failed: "Failed to exchange Google token. Ensure the redirect URI 'http://localhost:3000/api/auth/google/callback' is added in Google Cloud Console.",
+  google_profile_failed: "Could not fetch your Google profile. Please try again.",
   google_no_account: "Account could not be created or verified.",
-  google_server_error: "An unexpected error occurred with Google sign-in.",
+  google_server_error: "An unexpected error occurred with Google sign-in. Check server logs.",
 };
 
 export function LoginForm() {
@@ -221,9 +221,11 @@ export function LoginForm() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-primary-foreground/15 backdrop-blur flex items-center justify-center">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="CASFETA CUD"
+              className="h-14 w-14 rounded-2xl object-contain shadow-lg ring-2 ring-white/20 bg-slate-950 p-1"
+            />
             <div>
               <p className="text-lg font-serif tracking-wide">CASFETA</p>
               <p className="text-xs opacity-80">{t("common.orgName")}</p>
@@ -256,8 +258,12 @@ export function LoginForm() {
       <div className="flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <div className="w-full max-w-md space-y-6 py-4">
           <div className="text-center space-y-2">
-            <div className="lg:hidden inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-              <ShieldCheck className="h-7 w-7" />
+            <div className="lg:hidden inline-flex items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="CASFETA CUD"
+                className="h-16 w-16 rounded-2xl object-contain shadow-md ring-1 ring-border/50 bg-slate-950 p-1"
+              />
             </div>
             <h2 className="text-2xl font-semibold tracking-tight">
               {activeTab === "signin" ? t("auth.signInToAccount") : t("auth.createAccount")}
@@ -563,6 +569,17 @@ export function LoginForm() {
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Privacy Policy & Terms of Service Links */}
+          <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground pt-1">
+            <a href="/privacy" target="_blank" rel="noreferrer" className="hover:underline hover:text-foreground">
+              Privacy Policy
+            </a>
+            <span>•</span>
+            <a href="/terms" target="_blank" rel="noreferrer" className="hover:underline hover:text-foreground">
+              Terms of Service
+            </a>
+          </div>
         </div>
       </div>
 

@@ -16,11 +16,13 @@ import { ReportsView } from "@/components/modules/reports-view";
 import { AuditView } from "@/components/modules/audit-view";
 import { SettingsView } from "@/components/modules/settings-view";
 import { ProfileView } from "@/components/modules/profile-view";
+import { FeedbackView } from "@/components/modules/feedback-view";
+import { OnboardingForm } from "@/components/auth/onboarding-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 
 export default function Home() {
-  const { user, loading } = useAuth();
+  const { user, member, loading } = useAuth();
   const [view, setView] = useState<ViewKey>("dashboard");
 
   // Register service worker for offline support
@@ -52,6 +54,17 @@ export default function Home() {
     return <LoginForm />;
   }
 
+  // Mandatory Onboarding Gate:
+  // If user is a MEMBER and has not completed the official membership registration form,
+  // block access and display OnboardingForm immediately.
+  const isRegistrationComplete =
+    user.role !== "MEMBER" ||
+    (member?.biography && member.biography.includes('"isRegistrationComplete":true'));
+
+  if (!isRegistrationComplete) {
+    return <OnboardingForm />;
+  }
+
   return (
     <AppShell currentView={view} onNavigate={setView}>
       {view === "dashboard" && <DashboardHome onNavigate={setView} />}
@@ -62,6 +75,7 @@ export default function Home() {
       {view === "attendance" && <AttendanceView />}
       {view === "documents" && <DocumentsView />}
       {view === "announcements" && <AnnouncementsView />}
+      {view === "feedback" && <FeedbackView />}
       {view === "events" && <EventsView />}
       {view === "reports" && <ReportsView />}
       {view === "audit" && <AuditView />}

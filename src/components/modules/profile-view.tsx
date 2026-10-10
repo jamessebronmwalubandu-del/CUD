@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { label, initials } from "@/lib/utils/client";
+import { label, initials, isAssociateMember } from "@/lib/utils/client";
 import {
   UserCircle,
   Mail,
@@ -132,11 +132,14 @@ export function ProfileView() {
   if (!user) return null;
 
   const displayName = fullName || user.name || user.username;
+  const isAssociate = user.role === "MEMBER" && isAssociateMember(member);
   const roleLabel =
     user.role === "SUPER_ADMIN"
       ? "Super Admin"
       : user.role === "ADMIN"
       ? "Admin"
+      : isAssociate
+      ? "Associate Member"
       : "Member";
 
   return (
@@ -170,7 +173,13 @@ export function ProfileView() {
             <div className="flex-1 text-center sm:text-left space-y-1.5 min-w-0">
               <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                 <h2 className="text-2xl font-serif font-bold tracking-tight">{displayName}</h2>
-                <Badge variant="secondary" className="bg-primary/15 text-primary font-medium">
+                <Badge
+                  variant="secondary"
+                  className={isAssociate
+                    ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 font-medium"
+                    : "bg-primary/15 text-primary font-medium"
+                  }
+                >
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" /> {roleLabel}
                 </Badge>
               </div>

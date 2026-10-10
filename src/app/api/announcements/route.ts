@@ -37,8 +37,8 @@ const GET = withErrorHandler(async (req: NextRequest) => {
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        author: true,
-        ministry: true,
+        author: { select: { id: true, fullName: true, profilePhoto: true } },
+        ministry: { select: { id: true, name: true, color: true } },
         _count: { select: { comments: true } },
       },
     }),

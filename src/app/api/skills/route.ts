@@ -13,6 +13,8 @@ import {
   withErrorHandler,
 } from "@/lib/utils/api";
 
+import { cache } from "@/lib/utils/cache";
+
 export const runtime = "nodejs";
 
 // GET /api/skills — list all skills (with optional category filter)
@@ -24,6 +26,19 @@ const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category")?.trim();
   const q = searchParams.get("q")?.trim();
+
+  // If no filters, return cached catalog
+  if (!category && !q) {
+    const items = await cache.getOrSet("skills_catalog", 120, async () => {
+      return db.skill.findMany({
+        orderBy: { name: "asc" },
+        include: {
+          _count: { select: { members: true } },
+        },
+      });
+    });
+    return ok({ items });
+  }
 
   const where: Record<string, unknown> = {};
   if (category) where.category = category;
@@ -68,6 +83,9 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     entityType: "Skill",
     description: `Created skill '${skill.name}'.`,
   });
+
+  cache.invalidate("skills_catalog");
+  cache.invalidate("dashboard_summary");
 
   return created(skill);
 });

@@ -22,7 +22,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Pencil, Trash2, Users, Filter, Download } from "lucide-react";
-import { api, label, initials, LABELS } from "@/lib/utils/client";
+import { api, label, initials, LABELS, isAssociateMember } from "@/lib/utils/client";
 import type { Member } from "@/types";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useI18n } from "@/components/providers/i18n-provider";
@@ -222,7 +222,14 @@ export function MembersView() {
                         <div className="text-xs text-muted-foreground truncate max-w-48">{m.faculty}</div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        <Badge variant="outline" className="text-[10px]">{label(t, "year", m.yearOfStudy)}</Badge>
+                        <div className="flex flex-col gap-1 items-start">
+                          <Badge variant="outline" className="text-[10px]">{label(t, "year", m.yearOfStudy)}</Badge>
+                          {isAssociateMember(m) && (
+                            <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-300 text-[9px] font-semibold">
+                              Associate
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-sm font-mono">{m.phoneNumber}</TableCell>
                       <TableCell>

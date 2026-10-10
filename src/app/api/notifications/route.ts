@@ -20,13 +20,18 @@ const GET = withErrorHandler(async (req: NextRequest) => {
   const unreadOnly = searchParams.get("unreadOnly") === "true";
 
   const where: Record<string, unknown> = { memberId: current.user.memberId };
-  if (unreadOnly) where.isRead = false;
+  if (unreadOnly) {
+    const unreadCount = await db.notification.count({
+      where: { memberId: current.user.memberId, isRead: false },
+    });
+    return ok({ items: [], unreadCount });
+  }
 
   const [items, unreadCount] = await Promise.all([
     db.notification.findMany({
-      where,
+      where: { memberId: current.user.memberId },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 20,
     }),
     db.notification.count({
       where: { memberId: current.user.memberId, isRead: false },

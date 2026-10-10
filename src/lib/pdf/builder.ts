@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
 import path from "path";
+import fs from "fs";
 
 // PDFKit font metrics path — must be set before any PDFDocument is created
 // because the package may resolve to a wrong root in bundled environments.
@@ -175,19 +176,27 @@ export class PdfReportBuilder {
       width: CONTENT_WIDTH,
     });
 
-    // Shield icon (vector shape)
-    doc.save();
-    doc.translate(PAGE_WIDTH / 2, 140);
-    doc.fillColor(255, 255, 255, 30);
-    doc.moveTo(0, -25);
-    doc.lineTo(25, -15);
-    doc.lineTo(25, 10);
-    doc.lineTo(0, 30);
-    doc.lineTo(-25, 10);
-    doc.lineTo(-25, -15);
-    doc.closePath();
-    doc.fill();
-    doc.restore();
+    // Official Logo on Cover Page
+    const logoPath = path.join(process.cwd(), "public", "logo.png");
+    if (fs.existsSync(logoPath)) {
+      try {
+        doc.image(logoPath, PAGE_WIDTH / 2 - 36, 115, { width: 72, height: 72 });
+      } catch {
+        // Fallback vector shape if image loading fails
+        doc.save();
+        doc.translate(PAGE_WIDTH / 2, 140);
+        doc.fillColor(255, 255, 255, 30);
+        doc.moveTo(0, -25);
+        doc.lineTo(25, -15);
+        doc.lineTo(25, 10);
+        doc.lineTo(0, 30);
+        doc.lineTo(-25, 10);
+        doc.lineTo(-25, -15);
+        doc.closePath();
+        doc.fill();
+        doc.restore();
+      }
+    }
 
     // Title
     doc.fillColor(255, 255, 255).font("Helvetica-Bold").fontSize(28);

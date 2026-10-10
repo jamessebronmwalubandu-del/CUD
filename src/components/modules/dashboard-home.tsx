@@ -20,6 +20,7 @@ import type { DashboardData } from "@/types";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useI18n } from "@/components/providers/i18n-provider";
 import type { ViewKey } from "@/components/layout/app-shell";
+import { CourseMatesCard } from "@/components/modules/course-mates-card";
 
 const CHART_COLORS = [
   "oklch(0.55 0.12 175)", "oklch(0.7 0.15 75)", "oklch(0.62 0.22 25)",
@@ -142,6 +143,9 @@ export function DashboardHome({ onNavigate }: { onNavigate: (v: ViewKey) => void
           onClick={() => onNavigate("events")}
         />
       </div>
+
+      {/* Course Mates peer discovery section */}
+      <CourseMatesCard />
 
       {/* Charts row 1 */}
       <div className="grid lg:grid-cols-3 gap-4">

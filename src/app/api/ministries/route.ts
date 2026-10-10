@@ -13,6 +13,8 @@ import {
   withErrorHandler,
 } from "@/lib/utils/api";
 
+import { cache } from "@/lib/utils/cache";
+
 export const runtime = "nodejs";
 
 const GET = withErrorHandler(async () => {
@@ -20,17 +22,19 @@ const GET = withErrorHandler(async () => {
   if (!current) return unauthorized();
   authorize(current.user.role, "MINISTRY_VIEW");
 
-  const ministries = await db.ministry.findMany({
-    include: {
-      leader: true,
-      assistantLeader: true,
-      members: { include: { member: true } },
-      _count: { select: { documents: true, attendanceSessions: true, announcements: true } },
-    },
-    orderBy: { name: "asc" },
+  const items = await cache.getOrSet("ministries_list", 120, async () => {
+    return db.ministry.findMany({
+      include: {
+        leader: true,
+        assistantLeader: true,
+        members: { include: { member: true } },
+        _count: { select: { documents: true, attendanceSessions: true, announcements: true } },
+      },
+      orderBy: { name: "asc" },
+    });
   });
 
-  return ok({ items: ministries });
+  return ok({ items });
 });
 
 const POST = withErrorHandler(async (req: NextRequest) => {

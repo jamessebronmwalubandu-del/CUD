@@ -62,8 +62,8 @@ const GET = withErrorHandler(async (req: NextRequest) => {
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        skills: { include: { skill: true } },
-        ministries: { include: { ministry: true } },
+        skills: { select: { id: true, skill: { select: { id: true, name: true, category: true } } } },
+        ministries: { select: { id: true, role: true, ministry: { select: { id: true, name: true, color: true } } } },
       },
     }),
   ]);

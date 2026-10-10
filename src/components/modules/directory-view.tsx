@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Search, X, Users, Mail, Phone, MapPin, Award } from "lucide-react";
-import { api, label, initials, formatDate } from "@/lib/utils/client";
+import { api, label, initials, formatDate, isAssociateMember } from "@/lib/utils/client";
 import type { Member } from "@/types";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -162,6 +162,11 @@ export function DirectoryView() {
               <p className="font-semibold leading-tight truncate">{member.fullName}</p>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">{member.regNumber}</p>
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                {isAssociateMember(member) && (
+                  <Badge className="text-[10px] bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-300 font-semibold">
+                    🤝 Associate Member
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-[10px]">{label(t, "year", member.yearOfStudy)}</Badge>
                 <Badge
                   variant={member.status === "ACTIVE" ? "secondary" : "outline"}
@@ -206,6 +211,11 @@ export function DirectoryView() {
             <h3 className="text-xl font-serif tracking-tight">{member.fullName}</h3>
             <p className="text-sm text-muted-foreground">{member.regNumber}</p>
             <div className="flex gap-2 mt-2 flex-wrap">
+              {isAssociateMember(member) && (
+                <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-300 font-semibold">
+                  🤝 Associate Member
+                </Badge>
+              )}
               <Badge variant="secondary">{label(t, "gender", member.gender)}</Badge>
               <Badge variant="secondary">{label(t, "year", member.yearOfStudy)}</Badge>
               <Badge className="bg-primary/10 text-primary border-primary/20" variant="outline">
@@ -215,7 +225,13 @@ export function DirectoryView() {
           </div>
         </div>
 
-        {member.biography && (
+        {isAssociateMember(member) && (
+          <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-300 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center gap-2">
+            🤝 Mwanachama Mshiriki (Associate Member) wa CASFETA UDSM
+          </div>
+        )}
+
+        {member.biography && !member.biography.startsWith("{") && (
           <p className="text-sm italic text-muted-foreground border-l-2 border-primary/30 pl-3">
             {member.biography}
           </p>

@@ -20,7 +20,7 @@ import {
   Megaphone, Send, Pin, MessageSquare, Trash2, Smartphone, AlertCircle, CheckCircle2,
 } from "lucide-react";
 import { api, formatDateTime, initials, label, LABELS, timeAgo } from "@/lib/utils/client";
-import type { Announcement, Comment, AudienceType, Priority, Ministry } from "@/types";
+import type { Announcement, Comment, AudienceType, Priority, Ministry, Member } from "@/types";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useI18n } from "@/components/providers/i18n-provider";
 import { toast } from "sonner";
@@ -131,13 +131,50 @@ export function AnnouncementsView() {
 
 function AnnouncementCard({ announcement: a, onOpen }: { announcement: Announcement; onOpen: () => void }) {
   const { t, locale } = useI18n();
-  const commentCount = a._count?.comments ?? 0;
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<(Comment & { member?: Partial<Member> | null })[]>(a.comments ?? []);
+  const [commentText, setCommentText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+
+  const commentCount = comments.length > 0 ? comments.length : (a._count?.comments ?? 0);
+
+  const toggleComments = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!showComments) {
+      setLoadingComments(true);
+      try {
+        const full = await api.get<Announcement>(`/api/announcements/${a.id}`);
+        setComments(full.comments ?? []);
+      } catch { /* fallback to existing */ }
+      finally { setLoadingComments(false); }
+    }
+    setShowComments(!showComments);
+  };
+
+  const handleQuickComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    setPosting(true);
+    try {
+      await api.post(`/api/announcements/${a.id}/comments`, { content: commentText.trim() });
+      setCommentText("");
+      const full = await api.get<Announcement>(`/api/announcements/${a.id}`);
+      setComments(full.comments ?? []);
+      toast.success("Maoni yako yamechapishwa!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("announcements.commentFailed"));
+    } finally {
+      setPosting(false);
+    }
+  };
+
   return (
-    <Card className="card-hover">
+    <Card className="card-hover transition-all border-border/80">
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start gap-3">
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarFallback className="bg-primary/15 text-primary text-xs font-medium">
+          <Avatar className="h-10 w-10 shrink-0 border border-primary/20">
+            <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
               {initials(a.author?.fullName ?? "?")}
             </AvatarFallback>
           </Avatar>
@@ -158,22 +195,74 @@ function AnnouncementCard({ announcement: a, onOpen }: { announcement: Announcem
         </div>
 
         <div>
-          <button onClick={onOpen} className="text-left w-full">
-            <h3 className="font-serif font-semibold text-base leading-tight">{a.pinned && "📌 "}{a.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line line-clamp-4">{a.content}</p>
+          <button onClick={onOpen} className="text-left w-full hover:opacity-90">
+            <h3 className="font-serif font-semibold text-base leading-tight text-foreground">{a.pinned && "📌 "}{a.title}</h3>
+            <p className="text-sm text-muted-foreground mt-1.5 whitespace-pre-line leading-relaxed">{a.content}</p>
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground pt-2 border-t">
-          <button onClick={onOpen} className="flex items-center gap-1 hover:text-foreground">
-            <MessageSquare className="h-3.5 w-3.5" />
-            {t("announcements.comments", { n: commentCount })}
-          </button>
-          {a.smsSent && a.smsRecipients > 0 && (
-            <span className="flex items-center gap-1"><Smartphone className="h-3.5 w-3.5" /> {t("announcements.smsSentTo", { n: a.smsRecipients })}</span>
-          )}
-          <span className="ml-auto text-[10px]">{formatDateTime(a.createdAt)}</span>
+        {/* Footer actions bar */}
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground pt-3 border-t border-border/50">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleComments}
+            className={`h-8 gap-1.5 text-xs font-medium hover:bg-primary/5 hover:text-primary ${showComments ? "text-primary bg-primary/10" : ""}`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>Maoni ({commentCount})</span>
+          </Button>
+
+          <div className="flex items-center gap-2">
+            {a.smsSent && a.smsRecipients > 0 && (
+              <span className="flex items-center gap-1 text-[11px]"><Smartphone className="h-3.5 w-3.5 text-primary" /> SMS: {a.smsRecipients}</span>
+            )}
+            <span className="text-[11px]">{formatDateTime(a.createdAt)}</span>
+          </div>
         </div>
+
+        {/* Inline Comments Thread Section */}
+        {showComments && (
+          <div className="pt-3 border-t border-border/40 space-y-3 bg-muted/20 p-3 rounded-lg mt-2">
+            <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+              <MessageSquare className="h-3.5 w-3.5 text-primary" /> Maoni ya Wanachama:
+            </p>
+
+            {loadingComments ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 text-center">Bado hakuna maoni kwenye tangazo hili. Kuwa wa kwanza kutoa maoni!</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {comments.map((c) => (
+                  <div key={c.id} className="p-2.5 rounded-md bg-background border border-border/60 text-xs space-y-1 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-foreground">{c.member?.fullName ?? t("announcements.unknown")}</span>
+                      <span className="text-[10px] text-muted-foreground">{timeAgo(c.createdAt, locale)}</span>
+                    </div>
+                    <p className="text-muted-foreground whitespace-pre-line text-xs">{c.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Inline Quick Comment Input */}
+            <form onSubmit={handleQuickComment} className="flex gap-2 pt-1">
+              <Input
+                placeholder="Andika maoni yako hapa..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                className="text-xs h-9 bg-background"
+              />
+              <Button type="submit" size="sm" disabled={posting || !commentText.trim()} className="h-9 px-3 gap-1">
+                <Send className="h-3.5 w-3.5" /> Jibu
+              </Button>
+            </form>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -10,10 +10,46 @@ export class ApiError extends Error {
   }
 }
 
+// Client-side in-memory cache to prevent duplicate fetches on tab navigation
+interface ClientCacheEntry {
+  data: unknown;
+  timestamp: number;
+}
+const clientCache = new Map<string, ClientCacheEntry>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
+const CLIENT_CACHE_TTL_MS = 20_000; // 20 seconds cache for identical GETs
+
+export function invalidateClientCache(prefix?: string) {
+  if (!prefix) {
+    clientCache.clear();
+    return;
+  }
+  for (const key of clientCache.keys()) {
+    if (key.startsWith(prefix)) {
+      clientCache.delete(key);
+    }
+  }
+}
+
 async function request<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+
+  // For GET requests, check in-memory client cache & deduplicate in-flight requests
+  if (method === "GET" && options.cache !== "no-cache") {
+    const cached = clientCache.get(url);
+    if (cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS) {
+      return cached.data as T;
+    }
+
+    const existingPromise = inFlightRequests.get(url);
+    if (existingPromise) {
+      return existingPromise as Promise<T>;
+    }
+  }
+
   const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
@@ -22,26 +58,49 @@ async function request<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-    credentials: "same-origin",
-    cache: "no-store",
-  });
+  const exec = async (): Promise<T> => {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers,
+        credentials: "same-origin",
+      });
 
-  const isJson = res.headers.get("content-type")?.includes("application/json");
-  const payload = isJson ? await res.json().catch(() => null) : null;
+      const isJson = res.headers.get("content-type")?.includes("application/json");
+      const payload = isJson ? await res.json().catch(() => null) : null;
 
-  if (!res.ok) {
-    const message = payload?.error ?? res.statusText ?? "Request failed";
-    throw new ApiError(res.status, message, payload?.details);
+      if (!res.ok) {
+        const message = payload?.error ?? res.statusText ?? "Request failed";
+        throw new ApiError(res.status, message, payload?.details);
+      }
+
+      const result = (payload && typeof payload === "object" && "success" in payload && "data" in payload)
+        ? (payload.data as T)
+        : (payload as T);
+
+      // Cache successful GET results
+      if (method === "GET") {
+        clientCache.set(url, { data: result, timestamp: Date.now() });
+      } else {
+        // Any mutation (POST, PUT, PATCH, DELETE) invalidates the client cache
+        clientCache.clear();
+      }
+
+      return result;
+    } finally {
+      if (method === "GET") {
+        inFlightRequests.delete(url);
+      }
+    }
+  };
+
+  if (method === "GET") {
+    const p = exec();
+    inFlightRequests.set(url, p);
+    return p;
   }
 
-  // Some responses return { success: true, data: ... }
-  if (payload && typeof payload === "object" && "success" in payload && "data" in payload) {
-    return payload.data as T;
-  }
-  return payload as T;
+  return exec();
 }
 
 export const api = {
@@ -67,6 +126,7 @@ export const api = {
     }),
   delete: <T>(url: string, init?: RequestInit) =>
     request<T>(url, { ...init, method: "DELETE" }),
+  invalidateCache: invalidateClientCache,
 };
 
 /**
@@ -197,3 +257,20 @@ export function initials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+export function isAssociateMember(member: {
+  biography?: string | null;
+  yearOfStudy?: string | null;
+  status?: string | null;
+} | null | undefined): boolean {
+  if (!member) return false;
+  if (member.status === "ASSOCIATE") return true;
+  if (member.yearOfStudy === "ASSOCIATE" || member.yearOfStudy === "GRADUATED") return true;
+  if (member.biography) {
+    if (member.biography.includes('"membershipCategory":"ASSOCIATE"')) return true;
+    if (member.biography.includes('"studyLevel":"MASTERS"') || member.biography.includes('"studyLevel":"PHD"')) return true;
+    if (member.biography.includes('"membershipType":"ASSOCIATE"')) return true;
+  }
+  return false;
+}
+

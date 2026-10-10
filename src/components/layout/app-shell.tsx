@@ -22,6 +22,7 @@ import {
   ChevronDown,
   UserCircle,
   ShieldCheck,
+  MessageSquareHeart,
 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
@@ -32,7 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ROLE_LABELS } from "@/lib/rbac/permissions";
 import { cn } from "@/lib/utils";
-import { initials } from "@/lib/utils/client";
+import { initials, isAssociateMember } from "@/lib/utils/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,7 @@ export type ViewKey =
   | "attendance"
   | "documents"
   | "announcements"
+  | "feedback"
   | "events"
   | "reports"
   | "audit"
@@ -79,6 +81,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "attendance", icon: CalendarCheck, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.attendance", descKey: "attendance.subtitle" },
   { key: "documents", icon: FileText, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.documents", descKey: "documents.subtitle" },
   { key: "announcements", icon: Megaphone, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.announcements", descKey: "announcements.subtitle" },
+  { key: "feedback", icon: MessageSquareHeart, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.feedback", descKey: "feedback.subtitle" },
   { key: "events", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.events", descKey: "events.subtitle" },
   { key: "reports", icon: BarChart3, roles: ["SUPER_ADMIN", "ADMIN"], labelKey: "nav.reports", descKey: "reports.subtitle" },
   { key: "audit", icon: History, roles: ["SUPER_ADMIN"], labelKey: "nav.audit", descKey: "audit.subtitle" },
@@ -149,16 +152,24 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingSkills, setPendingSkills] = useState(0);
 
-  // Poll notifications + pending skills
+  // Efficient notification & pending skills check (visibility-aware, throttled)
   useEffect(() => {
     if (!user) return;
     let active = true;
+    let lastFetched = 0;
+
     const load = async () => {
+      // Don't poll if document is hidden in background
+      if (typeof document !== "undefined" && document.hidden) return;
+      const now = Date.now();
+      if (now - lastFetched < 30_000) return; // Minimum 30s cooldown between checks
+      lastFetched = now;
+
       try {
         const [notifRes, skillsRes] = await Promise.all([
-          fetch("/api/notifications?unreadOnly=true", { cache: "no-store" }),
+          fetch("/api/notifications?unreadOnly=true"),
           (user.role === "SUPER_ADMIN" || user.role === "ADMIN")
-            ? fetch("/api/member-skills?status=PENDING", { cache: "no-store" })
+            ? fetch("/api/member-skills?status=PENDING&countOnly=true")
             : Promise.resolve(null),
         ]);
         const notifJson = await notifRes.json();
@@ -166,24 +177,45 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
         if (skillsRes && skillsRes.ok) {
           const skillsJson = await skillsRes.json();
           if (active && skillsJson.success) {
-            const items = skillsJson.data?.items ?? [];
-            setPendingSkills(items.length);
+            const count = skillsJson.data?.count ?? skillsJson.data?.items?.length ?? 0;
+            setPendingSkills(count);
           }
         }
       } catch { /* ignore */ }
     };
+
     load();
-    const timer = setInterval(load, 30_000);
-    return () => { active = false; clearInterval(timer); };
+
+    // Recheck when user returns to this tab
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void load();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onVisibilityChange);
+
+    // Light background interval (every 3 minutes, only when visible)
+    const timer = setInterval(() => {
+      if (!document.hidden) void load();
+    }, 180_000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onVisibilityChange);
+    };
   }, [user]);
 
   if (!user) return null;
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
   const currentNav = NAV_ITEMS.find((n) => n.key === currentView);
+  const isAssociate = user.role === "MEMBER" && isAssociateMember(member);
   const roleLabel = locale === "sw"
-    ? (user.role === "SUPER_ADMIN" ? "Msimamizi Mkuu" : user.role === "ADMIN" ? "Msimamizi" : "Mwanachama")
-    : ROLE_LABELS[user.role];
+    ? (user.role === "SUPER_ADMIN" ? "Msimamizi Mkuu" : user.role === "ADMIN" ? "Msimamizi" : isAssociate ? "Mwanachama Mshiriki" : "Mwanachama")
+    : (isAssociate ? "Associate Member" : ROLE_LABELS[user.role]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -195,9 +227,11 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
         <div className="h-16 flex items-center gap-2.5 px-6 border-b border-sidebar-border">
-          <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="CASFETA CUD"
+            className="h-9 w-9 rounded-lg object-contain shadow-sm ring-1 ring-border/40 bg-slate-950 p-0.5"
+          />
           <div className="leading-tight">
             <p className="font-serif text-sm tracking-wide">CASFETA</p>
             <p className="text-[10px] text-muted-foreground">{t("common.orgName")}</p>
@@ -238,9 +272,11 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
         <SheetContent side="left" className="w-72 p-0 bg-sidebar">
           <SheetTitle className="sr-only">{t("common.appName")}</SheetTitle>
           <div className="h-16 flex items-center gap-2.5 px-6 border-b border-sidebar-border">
-            <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="CASFETA CUD"
+              className="h-9 w-9 rounded-lg object-contain shadow-sm ring-1 ring-border/40 bg-slate-950 p-0.5"
+            />
             <div className="leading-tight">
               <p className="font-serif text-sm tracking-wide">CASFETA</p>
               <p className="text-[10px] text-muted-foreground">{t("common.orgName")}</p>

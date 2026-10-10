@@ -36,7 +36,7 @@ const GET = withErrorHandler(async (req: NextRequest) => {
     where,
     orderBy: { startDate: "asc" },
     include: {
-      organizer: true,
+      organizer: { select: { id: true, fullName: true, regNumber: true } },
       _count: { select: { registrations: true } },
     },
   });
