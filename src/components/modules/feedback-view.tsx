@@ -25,14 +25,21 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useI18n } from "@/components/providers/i18n-provider";
 import { toast } from "sonner";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  GENERAL: "General / Ushauri wa Jumla",
-  LEADERSHIP: "Leadership / Uongozi",
-  FELLOWSHIP_SERVICES: "Services & Worship / Ibada",
-  TECHNICAL: "Technical & IT / Mtandao",
-  WELFARE: "Welfare & Social / Ustawi wa Wanachama",
-  OTHER: "Other / Mengineyo",
-};
+const CATEGORIES = [
+  "GENERAL",
+  "LEADERSHIP",
+  "FELLOWSHIP_SERVICES",
+  "TECHNICAL",
+  "WELFARE",
+  "OTHER",
+] as const;
+
+const STATUS_OPTIONS = [
+  "PENDING",
+  "REVIEWED",
+  "RESOLVED",
+  "ARCHIVED",
+] as const;
 
 const STATUS_TONES: Record<string, string> = {
   PENDING: "bg-amber-500/10 text-amber-600 border-amber-200",
@@ -45,6 +52,40 @@ export function FeedbackView() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const isAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
+
+  const getCategoryLabel = (cat: string) => {
+    switch (cat) {
+      case "GENERAL":
+        return t("feedback.cat.general");
+      case "LEADERSHIP":
+        return t("feedback.cat.leadership");
+      case "FELLOWSHIP_SERVICES":
+        return t("feedback.cat.fellowship_services");
+      case "TECHNICAL":
+        return t("feedback.cat.technical");
+      case "WELFARE":
+        return t("feedback.cat.welfare");
+      case "OTHER":
+        return t("feedback.cat.other");
+      default:
+        return cat;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return t("feedback.status.pending");
+      case "REVIEWED":
+        return t("feedback.status.reviewed");
+      case "RESOLVED":
+        return t("feedback.status.resolved");
+      case "ARCHIVED":
+        return t("feedback.status.archived");
+      default:
+        return status;
+    }
+  };
 
   const [items, setItems] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +109,7 @@ export function FeedbackView() {
       const res = await api.get<{ items: Feedback[] }>("/api/feedback");
       setItems(res.items ?? []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load feedback");
+      toast.error(err instanceof Error ? err.message : t("feedback.toast.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -81,7 +122,7 @@ export function FeedbackView() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject.trim() || !content.trim()) {
-      toast.error("Tafadhali jaza kichwa cha habari na maoni yako.");
+      toast.error(t("feedback.toast.requiredFields"));
       return;
     }
     setSubmitting(true);
@@ -92,14 +133,14 @@ export function FeedbackView() {
         category,
         isAnonymous,
       });
-      toast.success("Maoni na ushauri wako umetumwa kikamilifu! Ahsante.");
+      toast.success(t("feedback.toast.submitted"));
       setSubject("");
       setContent("");
       setIsAnonymous(false);
       setShowForm(false);
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit feedback");
+      toast.error(err instanceof Error ? err.message : t("feedback.toast.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -113,12 +154,12 @@ export function FeedbackView() {
         status: newStatus,
         adminResponse: adminResponseText.trim() || null,
       });
-      toast.success("Hali ya maoni imesasishwa kikamilifu!");
+      toast.success(t("feedback.toast.updated"));
       setRespondingTo(null);
       setAdminResponseText("");
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update feedback");
+      toast.error(err instanceof Error ? err.message : t("feedback.toast.updateFailed"));
     } finally {
       setUpdating(false);
     }
@@ -127,10 +168,10 @@ export function FeedbackView() {
   const handleDelete = async (id: string) => {
     try {
       await api.delete(`/api/feedback/${id}`);
-      toast.success("Maoni yamefutwa.");
+      toast.success(t("feedback.toast.deleted"));
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete feedback");
+      toast.error(err instanceof Error ? err.message : t("feedback.toast.deleteFailed"));
     }
   };
 
@@ -145,14 +186,14 @@ export function FeedbackView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-serif tracking-tight flex items-center gap-2">
-            <MessageSquareHeart className="h-7 w-7 text-primary" /> Sanduku la Maoni na Ushauri
+            <MessageSquareHeart className="h-7 w-7 text-primary" /> {t("feedback.title")}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Toa maoni, ushauri, au maombi kwa ajili ya kuendeleza na kuboresha familia yetu ya CASFETA CUD.
+            {t("feedback.subtitle")}
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} className="gap-2 shadow-md">
-          <Send className="h-4 w-4" /> Toa Maoni / Ushauri
+          <Send className="h-4 w-4" /> {t("feedback.giveFeedback")}
         </Button>
       </div>
 
@@ -163,18 +204,18 @@ export function FeedbackView() {
           className="cursor-pointer py-1.5 px-3 text-xs"
           onClick={() => setSelectedFilter("ALL")}
         >
-          Yote ({items.length})
+          {t("feedback.filter.all")} ({items.length})
         </Badge>
-        {Object.entries(CATEGORY_LABELS).map(([key, label]) => {
-          const count = items.filter((i) => i.category === key).length;
+        {CATEGORIES.map((catKey) => {
+          const count = items.filter((i) => i.category === catKey).length;
           return (
             <Badge
-              key={key}
-              variant={selectedFilter === key ? "default" : "outline"}
+              key={catKey}
+              variant={selectedFilter === catKey ? "default" : "outline"}
               className="cursor-pointer py-1.5 px-3 text-xs shrink-0"
-              onClick={() => setSelectedFilter(key)}
+              onClick={() => setSelectedFilter(catKey)}
             >
-              {label.split("/")[0].trim()} ({count})
+              {getCategoryLabel(catKey)} ({count})
             </Badge>
           );
         })}
@@ -192,12 +233,12 @@ export function FeedbackView() {
           <Card className="border-dashed">
             <CardContent className="py-12 text-center">
               <MessageSquareHeart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="font-medium text-base">Bado hakuna maoni yaliyotumwa.</p>
+              <p className="font-medium text-base">{t("feedback.empty.title")}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Kuwa wa kwanza kutoa maoni au ushauri wa kujenga ushirika wetu!
+                {t("feedback.empty.desc")}
               </p>
               <Button onClick={() => setShowForm(true)} variant="outline" className="mt-4 gap-2">
-                <Send className="h-4 w-4" /> Andika Maoni Yako
+                <Send className="h-4 w-4" /> {t("feedback.empty.button")}
               </Button>
             </CardContent>
           </Card>
@@ -215,23 +256,23 @@ export function FeedbackView() {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-sm">
-                          {item.isAnonymous ? "Mwanachama (Siri / Anonymous)" : item.member?.fullName ?? "Mwanachama"}
+                          {item.isAnonymous ? t("feedback.anonymousUser") : item.member?.fullName ?? t("feedback.memberFallback")}
                         </p>
                         {item.isAnonymous && (
                           <Badge variant="outline" className="text-[10px] gap-1 bg-muted">
-                            <Lock className="h-2.5 w-2.5" /> Siri
+                            <Lock className="h-2.5 w-2.5" /> {t("feedback.anonymousBadge")}
                           </Badge>
                         )}
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        {timeAgo(item.createdAt, locale)} · {CATEGORY_LABELS[item.category] || item.category}
+                        {timeAgo(item.createdAt, locale)} · {getCategoryLabel(item.category)}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${STATUS_TONES[item.status]}`}>
-                      {item.status}
+                      {getStatusLabel(item.status)}
                     </Badge>
                     {isAdmin && (
                       <Button
@@ -257,7 +298,7 @@ export function FeedbackView() {
                 {item.adminResponse && (
                   <div className="mt-3 p-3.5 rounded-lg bg-primary/5 border border-primary/15 text-sm space-y-1">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                      <Sparkles className="h-3.5 w-3.5" /> Majibu ya Uongozi / Leadership Feedback:
+                      <Sparkles className="h-3.5 w-3.5" /> {t("feedback.leadershipResponse")}
                     </div>
                     <p className="text-muted-foreground whitespace-pre-line">{item.adminResponse}</p>
                   </div>
@@ -276,7 +317,7 @@ export function FeedbackView() {
                         setNewStatus(item.status);
                       }}
                     >
-                      <Reply className="h-3.5 w-3.5 text-primary" /> Jibu / Badili Hali
+                      <Reply className="h-3.5 w-3.5 text-primary" /> {t("feedback.replyAction")}
                     </Button>
                   </div>
                 )}
@@ -291,24 +332,24 @@ export function FeedbackView() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-serif text-xl">
-              <MessageSquareHeart className="h-5 w-5 text-primary" /> Toa Maoni / Ushauri
+              <MessageSquareHeart className="h-5 w-5 text-primary" /> {t("feedback.dialog.title")}
             </DialogTitle>
             <DialogDescription>
-              Wazo lako ni muhimu sana katika kuimarisha na kukuza ushirika wetu.
+              {t("feedback.dialog.desc")}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Aina ya Maoni (Category)</Label>
+              <Label className="text-xs font-semibold">{t("feedback.dialog.category")}</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                  {CATEGORIES.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {v}
+                      {getCategoryLabel(k)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -316,9 +357,9 @@ export function FeedbackView() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Kichwa cha Habari (Subject)</Label>
+              <Label className="text-xs font-semibold">{t("feedback.dialog.subject")}</Label>
               <Input
-                placeholder="Mfano: Ushauri kuhusu Muda wa Maombi au Ratiba za Ibada"
+                placeholder={t("feedback.dialog.subjectPlaceholder")}
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 required
@@ -326,9 +367,9 @@ export function FeedbackView() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Maelezo ya Maoni Yako (Content)</Label>
+              <Label className="text-xs font-semibold">{t("feedback.dialog.content")}</Label>
               <Textarea
-                placeholder="Andika maoni au ushauri wako kwa uwazi hapa..."
+                placeholder={t("feedback.dialog.contentPlaceholder")}
                 rows={5}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -339,10 +380,10 @@ export function FeedbackView() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border">
               <div className="space-y-0.5">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Tuma kama Siri (Anonymous)
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" /> {t("feedback.dialog.anonymous")}
                 </Label>
                 <p className="text-[11px] text-muted-foreground">
-                  Jina lako halitatajwa au kuonekana na mtu yeyote.
+                  {t("feedback.dialog.anonymousHint")}
                 </p>
               </div>
               <Switch checked={isAnonymous} onCheckedChange={setIsAnonymous} />
@@ -350,10 +391,10 @@ export function FeedbackView() {
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
-                Ghairi
+                {t("feedback.dialog.cancel")}
               </Button>
               <Button type="submit" disabled={submitting} className="gap-2">
-                {submitting ? "Inatuma..." : "Tuma Maoni"}
+                {submitting ? t("feedback.dialog.submitting") : t("feedback.dialog.submit")}
               </Button>
             </DialogFooter>
           </form>
@@ -365,7 +406,7 @@ export function FeedbackView() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-serif text-lg">
-              <Reply className="h-5 w-5 text-primary" /> Jibu Maoni / Badili Hali
+              <Reply className="h-5 w-5 text-primary" /> {t("feedback.admin.title")}
             </DialogTitle>
           </DialogHeader>
 
@@ -377,24 +418,25 @@ export function FeedbackView() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Hali ya Maoni (Status)</Label>
+                <Label className="text-xs font-semibold">{t("feedback.admin.statusLabel")}</Label>
                 <Select value={newStatus} onValueChange={setNewStatus}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PENDING">PENDING (Bado Inasubiri)</SelectItem>
-                    <SelectItem value="REVIEWED">REVIEWED (Imefanyiwa Tathmini)</SelectItem>
-                    <SelectItem value="RESOLVED">RESOLVED (Imeshughulikiwa)</SelectItem>
-                    <SelectItem value="ARCHIVED">ARCHIVED (Imewekwa Kumbukumbu)</SelectItem>
+                    {STATUS_OPTIONS.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st} ({getStatusLabel(st)})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Majibu ya Uongozi (Admin Response)</Label>
+                <Label className="text-xs font-semibold">{t("feedback.admin.responseLabel")}</Label>
                 <Textarea
-                  placeholder="Andika majibu ya uongozi kwa mwanachama au ushirika..."
+                  placeholder={t("feedback.admin.responsePlaceholder")}
                   rows={4}
                   value={adminResponseText}
                   onChange={(e) => setAdminResponseText(e.target.value)}
@@ -403,10 +445,10 @@ export function FeedbackView() {
 
               <DialogFooter className="pt-2">
                 <Button type="button" variant="ghost" onClick={() => setRespondingTo(null)}>
-                  Ghairi
+                  {t("feedback.admin.cancel")}
                 </Button>
                 <Button onClick={handleUpdateStatus} disabled={updating}>
-                  {updating ? "Inahifadhi..." : "Hifadhi Majibu"}
+                  {updating ? t("feedback.admin.saving") : t("feedback.admin.save")}
                 </Button>
               </DialogFooter>
             </div>

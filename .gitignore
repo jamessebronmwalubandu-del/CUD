@@ -60,3 +60,4 @@ tool-results/
 db/*.db
 .vercel
 .env*
+bun.lock

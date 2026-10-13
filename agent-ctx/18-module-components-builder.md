@@ -35,7 +35,7 @@ Created all 9 module view components in `/home/z/my-project/src/components/modul
 
 ## Workflow Notes
 
-1. **Read first**: Read `dashboard-home.tsx`, `directory-view.tsx`, `members-view.tsx`, `client.ts`, `types/index.ts`, `auth-provider.tsx`, `page.tsx`, `permissions.ts`, and all relevant API routes (`skills`, `member-skills`, `ministries`, `attendance`, `documents`, `announcements`, `sms/broadcast`, `events`, `reports`, `audit-logs`, `settings`, `users`) to confirm request/response shapes.
+1. **Read first**: Read `dashboard-home.tsx`, `directory-view.tsx`, `members-view.tsx`, `client.ts`, `types/index.ts`, `auth-provider.tsx`, `page.tsx`, `permissions.ts`, and all relevant API routes (`skills`, `member-skills`, `ministries`, `attendance`, `documents`, `announcements`, `sms/broadcast`, `events`, `reports`, `audit-logs`, `settings`, `users`) to confirm request/response shapes. 
 2. **Wrote each module** one at a time with the `Write` tool, then lint-checked.
 3. **Lint fixes**:
    - Removed unused `eslint-disable-next-line` directives in 5 files (skills, audit, announcements, attendance, documents) — the linter was not flagging the rules anyway.

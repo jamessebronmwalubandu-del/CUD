@@ -7,7 +7,11 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const bcrypt = require("bcryptjs");
 
-const DATABASE_URL = "postgresql://neondb_owner:npg_o0ys3EfBkALd@ep-shiny-boat-b4z1l4j0.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+config();
+
+const DATABASE_URL = process.env.DATABASE_URL;
 const sql = neon(DATABASE_URL);
 
 // Check existing users
