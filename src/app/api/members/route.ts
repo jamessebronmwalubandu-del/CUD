@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { authorize } from "@/lib/rbac/permissions";
 import { auditLog } from "@/lib/services/audit";
+import { hashPassword } from "@/lib/auth/password";
 import {
   ok,
   created,
@@ -119,14 +120,40 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     },
   });
 
+  // Auto-create a login account:
+  //   username = registration number (lowercased, slashes → dashes)
+  //   password = phone number (hashed)
+  const autoUsername = body.regNumber.toLowerCase().replace(/\//g, "-");
+  const autoPasswordHash = await hashPassword(body.phoneNumber);
+
+  // Check if username already taken (shouldn't happen for new reg numbers)
+  const existingUsername = await db.user.findUnique({ where: { username: autoUsername } });
+  if (!existingUsername) {
+    try {
+      await db.user.create({
+        data: {
+          email: body.email || null,
+          username: autoUsername,
+          passwordHash: autoPasswordHash,
+          role: "MEMBER",
+          memberId: member.id,
+          isActive: true,
+        },
+      });
+    } catch {
+      // Non-fatal: member record is still created even if user account creation fails
+      // (e.g. duplicate email). Admin can set credentials manually later.
+    }
+  }
+
   await auditLog({
     actorId: current.user.memberId,
     action: "CREATE",
     module: "MEMBERS",
     entityId: member.id,
     entityType: "Member",
-    description: `Created member ${member.fullName} (${member.regNumber}).`,
-    metadata: { regNumber: member.regNumber },
+    description: `Created member ${member.fullName} (${member.regNumber}). Auto-login: ${autoUsername}.`,
+    metadata: { regNumber: member.regNumber, autoUsername },
   });
 
   return created(member);

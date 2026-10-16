@@ -171,6 +171,194 @@ export function timeAgo(date: string | Date, locale: "en" | "sw" = "en"): string
   return formatDate(d);
 }
 
+/**
+ * CUD (Catholic University of Dodoma) faculties, departments, and programmes.
+ * Used to drive the cascading dropdowns when registering a new member.
+ */
+export type CudDepartment = { name: string; courses: string[] };
+export type CudFaculty = { name: string; departments: CudDepartment[] };
+
+export const CUD_FACULTIES: CudFaculty[] = [
+  {
+    name: "Faculty of Business and Economics",
+    departments: [
+      {
+        name: "Department of Business Administration",
+        courses: [
+          "Bachelor of Business Administration (BBA)",
+          "Bachelor of Commerce (BCom)",
+          "Bachelor of Accounting & Finance",
+        ],
+      },
+      {
+        name: "Department of Economics",
+        courses: [
+          "Bachelor of Economics",
+          "Bachelor of Economics and Statistics",
+        ],
+      },
+    ],
+  },
+  {
+    name: "Faculty of Education",
+    departments: [
+      {
+        name: "Department of Arts & Social Sciences Education",
+        courses: [
+          "Bachelor of Education (Arts)",
+          "Bachelor of Education (Social Sciences)",
+        ],
+      },
+      {
+        name: "Department of Science Education",
+        courses: [
+          "Bachelor of Education (Science)",
+          "Bachelor of Education (Mathematics)",
+        ],
+      },
+      {
+        name: "Department of Early Childhood Education",
+        courses: [
+          "Bachelor of Early Childhood Education",
+        ],
+      },
+    ],
+  },
+  {
+    name: "Faculty of Law",
+    departments: [
+      {
+        name: "Department of Law",
+        courses: [
+          "Bachelor of Laws (LLB)",
+        ],
+      },
+    ],
+  },
+  {
+    name: "Faculty of Information Technology and Computing",
+    departments: [
+      {
+        name: "Department of Computer Science",
+        courses: [
+          "Bachelor of Science in Computer Science",
+          "Bachelor of Science in Software Engineering",
+          "Bachelor of Science in Information Technology",
+        ],
+      },
+      {
+        name: "Department of Information Systems",
+        courses: [
+          "Bachelor of Science in Information Systems",
+          "Bachelor of Science in Computer Engineering",
+        ],
+      },
+    ],
+  },
+  {
+    name: "Faculty of Health Sciences",
+    departments: [
+      {
+        name: "Department of Nursing",
+        courses: [
+          "Bachelor of Science in Nursing",
+          "Bachelor of Science in Midwifery",
+        ],
+      },
+      {
+        name: "Department of Public Health",
+        courses: [
+          "Bachelor of Science in Environmental Health",
+          "Bachelor of Science in Public Health",
+        ],
+      },
+      {
+        name: "Department of Clinical Medicine",
+        courses: [
+          "Bachelor of Medicine (Clinical)",
+        ],
+      },
+    ],
+  },
+  {
+    name: "Faculty of Social Sciences",
+    departments: [
+      {
+        name: "Department of Sociology",
+        courses: [
+          "Bachelor of Arts in Sociology",
+          "Bachelor of Arts in Social Work",
+        ],
+      },
+      {
+        name: "Department of Development Studies",
+        courses: [
+          "Bachelor of Arts in Development Studies",
+        ],
+      },
+      {
+        name: "Department of Communication & Media",
+        courses: [
+          "Bachelor of Arts in Mass Communication",
+          "Bachelor of Arts in Journalism",
+        ],
+      },
+    ],
+  },
+  {
+    name: "Faculty of Natural and Applied Sciences",
+    departments: [
+      {
+        name: "Department of Mathematics",
+        courses: [
+          "Bachelor of Science in Mathematics",
+          "Bachelor of Science in Statistics",
+        ],
+      },
+      {
+        name: "Department of Chemistry",
+        courses: [
+          "Bachelor of Science in Chemistry",
+          "Bachelor of Science in Biochemistry",
+        ],
+      },
+      {
+        name: "Department of Biology",
+        courses: [
+          "Bachelor of Science in Biology",
+          "Bachelor of Science in Environmental Science",
+        ],
+      },
+    ],
+  },
+  {
+    name: "School of Postgraduate Studies",
+    departments: [
+      {
+        name: "Postgraduate Programmes",
+        courses: [
+          "Master of Arts",
+          "Master of Science",
+          "Master of Business Administration (MBA)",
+          "Doctor of Philosophy (PhD)",
+        ],
+      },
+    ],
+  },
+];
+
+export const CUD_FACULTY_NAMES = CUD_FACULTIES.map((f) => f.name);
+
+export function getCudDepartments(facultyName: string): CudDepartment[] {
+  return CUD_FACULTIES.find((f) => f.name === facultyName)?.departments ?? [];
+}
+
+export function getCudCourses(facultyName: string, departmentName: string): string[] {
+  return (
+    getCudDepartments(facultyName).find((d) => d.name === departmentName)?.courses ?? []
+  );
+}
+
 export const LABELS = {
   role: { SUPER_ADMIN: "Super Admin", ADMIN: "Admin", MEMBER: "Member" } as Record<string, string>,
   gender: { MALE: "Male", FEMALE: "Female" } as Record<string, string>,

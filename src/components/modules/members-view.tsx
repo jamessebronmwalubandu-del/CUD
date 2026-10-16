@@ -22,7 +22,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Pencil, Trash2, Users, Filter, Download } from "lucide-react";
-import { api, label, initials, LABELS, isAssociateMember } from "@/lib/utils/client";
+import { api, label, initials, LABELS, isAssociateMember, CUD_FACULTY_NAMES, getCudDepartments, getCudCourses } from "@/lib/utils/client";
 import type { Member } from "@/types";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useI18n } from "@/components/providers/i18n-provider";
@@ -363,6 +363,18 @@ function MemberForm({ member, onSaved, onCancel }: { member: Member | null; onSa
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Cascade: when faculty changes, reset department & course
+  const setFaculty = (v: string) => {
+    setForm((f) => ({ ...f, faculty: v, department: "", course: "" }));
+  };
+  // Cascade: when department changes, reset course
+  const setDepartment = (v: string) => {
+    setForm((f) => ({ ...f, department: v, course: "" }));
+  };
+
+  const departments = getCudDepartments(form.faculty);
+  const courses = getCudCourses(form.faculty, form.department);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -384,15 +396,37 @@ function MemberForm({ member, onSaved, onCancel }: { member: Member | null; onSa
 
   return (
     <form onSubmit={submit} className="space-y-4">
+
+      {/* Auto-credential info notice (new members only) */}
+      {!member && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm">
+          <p className="font-semibold text-blue-700 dark:text-blue-300 mb-1">🔑 Auto Login Credentials</p>
+          <p className="text-blue-600 dark:text-blue-400">
+            A login account will be created automatically:<br />
+            <strong>Username</strong> = Registration Number &nbsp;·&nbsp; <strong>Password</strong> = Phone Number
+          </p>
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label={t("members.fullName")} required>
           <Input value={form.fullName} onChange={(e) => set("fullName", e.target.value)} required />
         </Field>
         <Field label={t("members.regNumber")} required>
-          <Input value={form.regNumber} onChange={(e) => set("regNumber", e.target.value)} required />
+          <Input
+            value={form.regNumber}
+            onChange={(e) => set("regNumber", e.target.value)}
+            placeholder="e.g. CUD/2024/00123"
+            required
+          />
         </Field>
         <Field label={t("members.phoneNumber")} required>
-          <Input value={form.phoneNumber} onChange={(e) => set("phoneNumber", e.target.value)} required />
+          <Input
+            value={form.phoneNumber}
+            onChange={(e) => set("phoneNumber", e.target.value)}
+            placeholder="e.g. 0712345678"
+            required
+          />
         </Field>
         <Field label={t("common.email")}>
           <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
@@ -414,15 +448,57 @@ function MemberForm({ member, onSaved, onCancel }: { member: Member | null; onSa
             </SelectContent>
           </Select>
         </Field>
+
+        {/* Faculty → cascading dropdown */}
         <Field label={t("members.faculty")} required>
-          <Input value={form.faculty} onChange={(e) => set("faculty", e.target.value)} required />
+          <Select value={form.faculty} onValueChange={setFaculty}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select faculty…" />
+            </SelectTrigger>
+            <SelectContent>
+              {CUD_FACULTY_NAMES.map((f) => (
+                <SelectItem key={f} value={f}>{f}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
+
+        {/* Department → cascading dropdown (depends on faculty) */}
         <Field label={t("members.department")} required>
-          <Input value={form.department} onChange={(e) => set("department", e.target.value)} required />
+          <Select
+            value={form.department}
+            onValueChange={setDepartment}
+            disabled={!form.faculty}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={form.faculty ? "Select department…" : "Select faculty first"} />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((d) => (
+                <SelectItem key={d.name} value={d.name}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
+
+        {/* Course → cascading dropdown (depends on department) */}
         <Field label={t("members.course")} required>
-          <Input value={form.course} onChange={(e) => set("course", e.target.value)} required />
+          <Select
+            value={form.course}
+            onValueChange={(v) => set("course", v)}
+            disabled={!form.department}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={form.department ? "Select course…" : "Select department first"} />
+            </SelectTrigger>
+            <SelectContent>
+              {courses.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
+
         <Field label={t("members.hostel")}>
           <Input value={form.hostel} onChange={(e) => set("hostel", e.target.value)} />
         </Field>

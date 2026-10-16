@@ -1,4 +1,4 @@
-﻿-- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateTable
@@ -424,4 +424,28 @@ ALTER TABLE "EventRegistration" ADD CONSTRAINT "EventRegistration_memberId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "Feedback" (
+    "id" TEXT NOT NULL,
+    "memberId" TEXT,
+    "category" TEXT NOT NULL DEFAULT 'GENERAL',
+    "subject" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "isAnonymous" BOOLEAN NOT NULL DEFAULT false,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "adminResponse" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Feedback_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX IF NOT EXISTS "Feedback_category_idx" ON "Feedback"("category");
+CREATE INDEX IF NOT EXISTS "Feedback_status_idx" ON "Feedback"("status");
+CREATE INDEX IF NOT EXISTS "Feedback_createdAt_idx" ON "Feedback"("createdAt");
+
+-- AddForeignKey
+ALTER TABLE "Feedback" ADD CONSTRAINT "Feedback_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

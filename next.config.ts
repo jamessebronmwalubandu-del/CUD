@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   output: process.env.VERCEL ? undefined : "standalone",
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "25mb",
     },
+  },
+  turbopack: {
+    // Pin the workspace root so Next.js doesn't pick up a parent lockfile
+    root: path.resolve(__dirname),
   },
   async headers() {
     return [
