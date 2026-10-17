@@ -2,34 +2,26 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { authorize, can } from "@/lib/rbac/permissions";
-import { ROLES } from "@/lib/rbac/permissions";
 import { auditLog } from "@/lib/services/audit";
 import {
   ok,
   created,
   badRequest,
   unauthorized,
-  notFound,
-  serverError,
   withErrorHandler,
 } from "@/lib/utils/api";
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
-const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
-
-const ALLOWED_TYPES: Record<string, string[]> = {
-  "application/pdf": ["pdf"],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ["docx"],
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ["xlsx"],
-  "image/png": ["png"],
-  "image/jpeg": ["jpg", "jpeg"],
-  "image/webp": ["webp"],
+const ALLOWED_TYPES: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-excel": "xls",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
 };
 
 // GET /api/documents — list with filters
@@ -47,10 +39,14 @@ const GET = withErrorHandler(async (req: NextRequest) => {
   if (category) where.category = category;
   if (ministryId) where.ministryId = ministryId;
   if (q) {
-    where.OR = [{ title: { contains: q } }, { description: { contains: q } }, { fileName: { contains: q } }];
+    where.OR = [
+      { title: { contains: q } },
+      { description: { contains: q } },
+      { fileName: { contains: q } },
+    ];
   }
 
-  // RBAC filtering: members only see ALL and their-ministry docs
+  // RBAC: non-uploaders only see ALL docs and their-ministry docs
   if (!can(current.user.role, "DOCUMENT_UPLOAD" as never)) {
     const myMinistryIds = await db.ministryMember.findMany({
       where: { memberId: current.user.memberId ?? "" },
@@ -58,7 +54,10 @@ const GET = withErrorHandler(async (req: NextRequest) => {
     });
     where.OR = [
       { accessLevel: "ALL" },
-      { ministryId: { in: myMinistryIds.map((m) => m.ministryId) }, accessLevel: "MINISTRY" },
+      {
+        ministryId: { in: myMinistryIds.map((m) => m.ministryId) },
+        accessLevel: "MINISTRY",
+      },
     ];
   }
 
@@ -74,46 +73,54 @@ const GET = withErrorHandler(async (req: NextRequest) => {
   return ok({ items: documents });
 });
 
-// POST /api/documents — multipart upload
+/**
+ * POST /api/documents
+ *
+ * Accepts JSON (application/json) with the file already uploaded to UploadThing.
+ * The client uploads via useUploadThing, gets back a URL, then calls this endpoint
+ * to persist the document metadata.
+ *
+ * Body: {
+ *   title: string
+ *   description?: string
+ *   category: string
+ *   ministryId?: string
+ *   accessLevel?: string
+ *   fileUrl: string        — UploadThing ufsUrl
+ *   fileName: string       — original filename
+ *   fileType: string       — mime type
+ *   fileSize: number       — bytes
+ * }
+ */
 const POST = withErrorHandler(async (req: NextRequest) => {
   const current = await getCurrentUser();
   if (!current) return unauthorized();
   authorize(current.user.role, "DOCUMENT_UPLOAD");
 
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  const title = formData.get("title") as string | null;
-  const category = formData.get("category") as string | null;
-  const description = (formData.get("description") as string | null) || "";
-  const ministryId = (formData.get("ministryId") as string | null) || null;
-  const accessLevel = (formData.get("accessLevel") as string | null) || "ALL";
+  const body = await req.json().catch(() => null);
+  if (!body) return badRequest("Invalid JSON body.");
 
-  if (!file) return badRequest("File is required.");
-  if (!title) return badRequest("Title is required.");
+  const { title, description, category, ministryId, accessLevel, fileUrl, fileName, fileType, fileSize } = body;
+
+  if (!title?.trim()) return badRequest("Title is required.");
   if (!category) return badRequest("Category is required.");
-  if (file.size > MAX_SIZE) return badRequest("File exceeds 25 MB limit.");
+  if (!fileUrl) return badRequest("fileUrl is required.");
+  if (!fileName) return badRequest("fileName is required.");
+  if (!fileType) return badRequest("fileType is required.");
 
-  const allowed = ALLOWED_TYPES[file.type];
-  if (!allowed) return badRequest(`File type '${file.type}' is not allowed.`);
-
-  if (!existsSync(UPLOAD_DIR)) await mkdir(UPLOAD_DIR, { recursive: true });
-  const fileExt = allowed[0];
-  const safeName = `${randomUUID()}.${fileExt}`;
-  const filePath = path.join(UPLOAD_DIR, safeName);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
+  const ext = ALLOWED_TYPES[fileType] ?? fileName.split(".").pop()?.toLowerCase() ?? "bin";
 
   const document = await db.document.create({
     data: {
-      title,
-      description,
+      title: title.trim(),
+      description: description?.trim() ?? "",
       category,
-      fileName: file.name,
-      filePath: `/uploads/${safeName}`,
-      fileType: fileExt,
-      fileSize: file.size,
+      fileName,
+      filePath: fileUrl,          // store the UploadThing URL directly
+      fileType: ext,
+      fileSize: fileSize ?? 0,
       ministryId: ministryId || null,
-      accessLevel,
+      accessLevel: accessLevel || "ALL",
       uploadedById: current.user.memberId,
     },
   });
@@ -124,12 +131,12 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     module: "DOCUMENTS",
     entityId: document.id,
     entityType: "Document",
-    description: `Uploaded document '${title}' (${file.name}).`,
+    description: `Uploaded document '${title}' (${fileName}).`,
   });
 
   const fullDoc = await db.document.findUnique({
     where: { id: document.id },
-    include: { ministry: true },
+    include: { ministry: true, uploadedBy: { select: { id: true, fullName: true } } },
   });
 
   return created(fullDoc ?? document);

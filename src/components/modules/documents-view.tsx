@@ -30,6 +30,7 @@ import type { Document as Doc, DocumentCategory, AccessLevel, Ministry } from "@
 import { useAuth } from "@/components/providers/auth-provider";
 import { useI18n } from "@/components/providers/i18n-provider";
 import { toast } from "sonner";
+import { useUploadThing } from "@/lib/uploadthing";
 
 const CHART_COLORS = [
   "oklch(0.55 0.12 175)", "oklch(0.7 0.15 75)", "oklch(0.62 0.22 25)",
@@ -356,6 +357,10 @@ function UploadForm({ ministries, onSaved, onCancel }: { ministries: Ministry[];
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
+  const { startUpload, isUploading } = useUploadThing("documentUploader", {
+    onUploadProgress: (p) => setProgress(p),
+  });
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) { toast.error(t("documents.pleaseSelectFile")); return; }
@@ -363,19 +368,25 @@ function UploadForm({ ministries, onSaved, onCancel }: { ministries: Ministry[];
     setSaving(true);
     setProgress(5);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("title", form.title);
-      fd.append("description", form.description);
-      fd.append("category", form.category);
-      if (form.ministryId) fd.append("ministryId", form.ministryId);
-      fd.append("accessLevel", form.accessLevel);
+      // Step 1: upload file to UploadThing (cloud storage)
+      const result = await startUpload([file]);
+      if (!result?.[0]) throw new Error("Upload to storage failed.");
+      const { ufsUrl, name, size } = result[0];
+      setProgress(90);
 
-      // Fake progress for UX (FormData upload doesn't expose progress here)
-      const interval = setInterval(() => setProgress((p) => Math.min(90, p + 10)), 200);
+      // Step 2: persist metadata to our DB
+      await api.post("/api/documents", {
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        ministryId: form.ministryId || null,
+        accessLevel: form.accessLevel,
+        fileUrl: ufsUrl,
+        fileName: name,
+        fileType: file.type,
+        fileSize: size,
+      });
 
-      await api.post("/api/documents", fd);
-      clearInterval(interval);
       setProgress(100);
       toast.success(t("documents.uploaded"));
       onSaved();
@@ -387,6 +398,8 @@ function UploadForm({ ministries, onSaved, onCancel }: { ministries: Ministry[];
     }
   };
 
+  const busy = saving || isUploading;
+
   return (
     <form onSubmit={submit} className="space-y-3">
       <div className="space-y-1.5">
@@ -395,7 +408,7 @@ function UploadForm({ ministries, onSaved, onCancel }: { ministries: Ministry[];
           <input
             id="doc-file"
             type="file"
-            accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp"
+            accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.webp"
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
               setFile(f);
@@ -449,7 +462,7 @@ function UploadForm({ ministries, onSaved, onCancel }: { ministries: Ministry[];
         </Select>
       </div>
 
-      {saving && progress > 0 && (
+      {busy && progress > 0 && (
         <div className="space-y-1">
           <Progress value={progress} className="h-1.5" />
           <p className="text-xs text-muted-foreground text-center">{t("documents.uploading")} {progress}%</p>
@@ -457,8 +470,8 @@ function UploadForm({ ministries, onSaved, onCancel }: { ministries: Ministry[];
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>{t("common.cancel")}</Button>
-        <Button type="submit" disabled={saving || !file}>{saving ? t("documents.uploading") : t("common.upload")}</Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>{t("common.cancel")}</Button>
+        <Button type="submit" disabled={busy || !file}>{busy ? t("documents.uploading") : t("common.upload")}</Button>
       </DialogFooter>
     </form>
   );

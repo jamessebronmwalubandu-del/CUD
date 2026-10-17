@@ -563,6 +563,7 @@ const en: Dict = {
   "announcements.postedAndSms": "Posted · SMS sent to {n} recipients",
   "announcements.postedSmsFailed": "Posted but SMS failed: {err}",
   "announcements.titleContentRequired": "Title and content are required",
+  "announcements.shareWhatsApp": "Share on WhatsApp",
 
   // ─────────────────────────────── Events ───────────────────────────────
   "events.title": "Events",
@@ -1397,6 +1398,7 @@ const sw: Dict = {
   "announcements.postedAndSms": "Limetumwa · SMS imetumwa kwa {n} wapokeaji",
   "announcements.postedSmsFailed": "Limetumwa lakini SMS imeshindikana: {err}",
   "announcements.titleContentRequired": "Kichwa na maudhui vinahitajika",
+  "announcements.shareWhatsApp": "Shiriki kwenye WhatsApp",
 
   // ─────────────────────────────── Events ───────────────────────────────
   "events.title": "Matukio",
