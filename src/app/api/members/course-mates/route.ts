@@ -5,72 +5,117 @@ import { ok, unauthorized, withErrorHandler } from "@/lib/utils/api";
 
 export const runtime = "nodejs";
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+/**
+ * GET /api/members/course-mates
+ *
+ * Returns tiered "People you may know" suggestions for the logged-in member.
+ *
+ * Priority order:
+ *  1. COURSEMATES  — same course (exact, case-insensitive)
+ *  2. ROOMMATES    — same hostel (only if hostel is set)
+ *  3. FACULTY      — same faculty / college
+ *
+ * Each result carries a `relationTag` so the UI can label the connection.
+ * Never falls back to "all members" — if nothing matches the section is hidden.
+ */
+
+const SELECT = {
+  id: true,
+  fullName: true,
+  regNumber: true,
+  course: true,
+  faculty: true,
+  yearOfStudy: true,
+  phoneNumber: true,
+  email: true,
+  profilePhoto: true,
+  hostel: true,
+} as const;
+
+export const GET = withErrorHandler(async (_req: NextRequest) => {
   const current = await getCurrentUser();
   if (!current) return unauthorized();
 
-  const { searchParams } = new URL(req.url);
-  let course = searchParams.get("course");
+  const memberId = current.user.memberId;
+  if (!memberId) return ok({ items: [], matchType: null });
 
-  // If no course specified, fetch logged-in member's course
-  if (!course && current.user.memberId) {
-    const currentMember = await db.member.findUnique({
-      where: { id: current.user.memberId },
-      select: { course: true },
-    });
-    course = currentMember?.course || null;
-  }
-
-  if (!course) {
-    return ok({ items: [], targetCourse: null });
-  }
-
-  // Find classmates studying the exact same course
-  let mates = await db.member.findMany({
-    where: {
-      course: { equals: course, mode: "insensitive" },
-      id: current.user.memberId ? { not: current.user.memberId } : undefined,
-      status: "ACTIVE",
-    },
-    select: {
-      id: true,
-      fullName: true,
-      regNumber: true,
-      course: true,
-      yearOfStudy: true,
-      phoneNumber: true,
-      email: true,
-      profilePhoto: true,
-      hostel: true,
-    },
-    take: 20,
-    orderBy: { yearOfStudy: "asc" },
+  // Fetch the current member's profile fields
+  const me = await db.member.findUnique({
+    where: { id: memberId },
+    select: { course: true, faculty: true, hostel: true },
   });
 
-  let isFallback = false;
+  if (!me) return ok({ items: [], matchType: null });
 
-  // Fallback: if no classmates found in exact same course, bring other fellowship members in same faculty or general active members
-  if (mates.length === 0) {
-    isFallback = true;
-    mates = await db.member.findMany({
+  const exclude = { id: { not: memberId } };
+  const activeOnly = { status: "ACTIVE" as const };
+
+  // ── 1. Coursemates ────────────────────────────────────────────────────────
+  if (me.course) {
+    const coursemates = await db.member.findMany({
       where: {
-        id: current.user.memberId ? { not: current.user.memberId } : undefined,
-        status: "ACTIVE",
+        ...exclude,
+        ...activeOnly,
+        course: { equals: me.course, mode: "insensitive" },
       },
-      select: {
-        id: true,
-        fullName: true,
-        regNumber: true,
-        course: true,
-        yearOfStudy: true,
-        phoneNumber: true,
-        email: true,
-        profilePhoto: true,
-        hostel: true,
-      },
-      take: 10,
+      select: SELECT,
+      take: 12,
+      orderBy: { yearOfStudy: "asc" },
     });
+
+    if (coursemates.length > 0) {
+      return ok({
+        items: coursemates.map((m) => ({ ...m, relationTag: "coursemate" })),
+        matchType: "course",
+        matchValue: me.course,
+      });
+    }
   }
 
-  return ok({ items: mates, targetCourse: course, isFallback });
+  // ── 2. Roommates (same hostel) ────────────────────────────────────────────
+  if (me.hostel) {
+    const roommates = await db.member.findMany({
+      where: {
+        ...exclude,
+        ...activeOnly,
+        hostel: { equals: me.hostel, mode: "insensitive" },
+      },
+      select: SELECT,
+      take: 12,
+      orderBy: { fullName: "asc" },
+    });
+
+    if (roommates.length > 0) {
+      return ok({
+        items: roommates.map((m) => ({ ...m, relationTag: "roommate" })),
+        matchType: "hostel",
+        matchValue: me.hostel,
+      });
+    }
+  }
+
+  // ── 3. Faculty peers ──────────────────────────────────────────────────────
+  if (me.faculty) {
+    const facultyPeers = await db.member.findMany({
+      where: {
+        ...exclude,
+        ...activeOnly,
+        faculty: { equals: me.faculty, mode: "insensitive" },
+      },
+      select: SELECT,
+      take: 12,
+      orderBy: { yearOfStudy: "asc" },
+    });
+
+    if (facultyPeers.length > 0) {
+      return ok({
+        items: facultyPeers.map((m) => ({ ...m, relationTag: "faculty" })),
+        matchType: "faculty",
+        matchValue: me.faculty,
+      });
+    }
+  }
+
+  // ── Nothing matched ───────────────────────────────────────────────────────
+  return ok({ items: [], matchType: null, matchValue: null });
 });
