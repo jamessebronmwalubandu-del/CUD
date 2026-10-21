@@ -34,6 +34,37 @@ function buildWhatsAppLink(title: string, content: string): string {
   const text = `📢 *${title}*\n\n${content}\n\n— CASFETA CUD Chapter`;
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
+
+/** Regex that matches http/https URLs inside text */
+const URL_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+
+/**
+ * Renders text with whitespace preserved and any URLs turned into clickable links.
+ * Safe — splits on regex, never uses dangerouslySetInnerHTML.
+ */
+function RichText({ text, className }: { text: string; className?: string }) {
+  const parts = text.split(URL_REGEX);
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        URL_REGEX.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-primary underline underline-offset-2 break-all hover:opacity-80"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        )
+      )}
+    </span>
+  );
+}
 import { api, formatDateTime, initials, label, LABELS, timeAgo } from "@/lib/utils/client";
 import type { Announcement, Comment, AudienceType, Priority, Ministry, Member } from "@/types";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -212,7 +243,9 @@ function AnnouncementCard({ announcement: a, onOpen }: { announcement: Announcem
         <div>
           <button onClick={onOpen} className="text-left w-full hover:opacity-90">
             <h3 className="font-serif font-semibold text-base leading-tight text-foreground">{a.pinned && "📌 "}{a.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1.5 whitespace-pre-line leading-relaxed">{a.content}</p>
+            <p className="text-sm text-muted-foreground mt-1.5 whitespace-pre-line leading-relaxed">
+              <RichText text={a.content} />
+            </p>
           </button>
         </div>
 
@@ -274,7 +307,7 @@ function AnnouncementCard({ announcement: a, onOpen }: { announcement: Announcem
                       <span className="font-semibold text-foreground">{c.member?.fullName ?? t("announcements.unknown")}</span>
                       <span className="text-[10px] text-muted-foreground">{timeAgo(c.createdAt, locale)}</span>
                     </div>
-                    <p className="text-muted-foreground whitespace-pre-line text-xs">{c.content}</p>
+                    <p className="text-muted-foreground whitespace-pre-line text-xs"><RichText text={c.content} /></p>
                   </div>
                 ))}
               </div>
@@ -488,7 +521,9 @@ function AnnouncementDetail({ announcement, onClose }: { announcement: Announcem
         </DialogDescription>
       </DialogHeader>
 
-      <div className="rounded-md bg-muted/30 p-4 text-sm whitespace-pre-line">{detail.content}</div>
+      <div className="rounded-md bg-muted/30 p-4 text-sm whitespace-pre-line">
+        <RichText text={detail.content} />
+      </div>
 
       {/* Share on WhatsApp */}
       <a
@@ -526,7 +561,7 @@ function AnnouncementDetail({ announcement, onClose }: { announcement: Announcem
                     <p className="text-sm font-medium truncate">{c.member?.fullName ?? t("announcements.unknown")}</p>
                     <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo(c.createdAt, locale)}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-line">{c.content}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-line"><RichText text={c.content} /></p>
                 </div>
                 {(member?.id === c.memberId || canDeleteAnnouncement) && (
                   <Button variant="ghost" size="icon" className="h-6 w-6 opacity-50 hover:opacity-100 hover:text-destructive" onClick={() => deleteComment(c)}>
