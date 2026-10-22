@@ -23,6 +23,7 @@ import {
   UserCircle,
   ShieldCheck,
   MessageSquareHeart,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
@@ -57,6 +58,7 @@ export type ViewKey =
   | "attendance"
   | "documents"
   | "announcements"
+  | "chat"
   | "feedback"
   | "events"
   | "reports"
@@ -81,6 +83,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "attendance", icon: CalendarCheck, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.attendance", descKey: "attendance.subtitle" },
   { key: "documents", icon: FileText, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.documents", descKey: "documents.subtitle" },
   { key: "announcements", icon: Megaphone, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.announcements", descKey: "announcements.subtitle" },
+  { key: "chat", icon: MessageCircle, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.chat", descKey: "nav.chat" },
   { key: "feedback", icon: MessageSquareHeart, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.feedback", descKey: "feedback.subtitle" },
   { key: "events", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "MEMBER"], labelKey: "nav.events", descKey: "events.subtitle" },
   { key: "reports", icon: BarChart3, roles: ["SUPER_ADMIN", "ADMIN"], labelKey: "nav.reports", descKey: "reports.subtitle" },
@@ -102,6 +105,7 @@ function NavList({
   onSelect,
   t,
   pendingSkills,
+  unreadChat,
 }: {
   items: NavItem[];
   currentView: ViewKey;
@@ -109,6 +113,7 @@ function NavList({
   onSelect?: () => void;
   t: (k: string, p?: Record<string, string | number>) => string;
   pendingSkills?: number;
+  unreadChat?: number;
 }) {
   return (
     <nav className="flex flex-col gap-1 px-3 py-4">
@@ -137,6 +142,11 @@ function NavList({
                 {pendingSkills}
               </Badge>
             ) : null}
+            {item.key === "chat" && unreadChat && unreadChat > 0 ? (
+              <Badge className="ml-auto h-5 px-1.5 text-[10px] bg-primary text-primary-foreground">
+                {unreadChat > 99 ? "99+" : unreadChat}
+              </Badge>
+            ) : null}
           </button>
         );
       })}
@@ -150,6 +160,7 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadChat, setUnreadChat] = useState(0);
   const [pendingSkills, setPendingSkills] = useState(0);
 
   // Efficient notification & pending skills check (visibility-aware, throttled)
@@ -174,6 +185,12 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
         ]);
         const notifJson = await notifRes.json();
         if (active && notifJson.success) setUnreadCount(notifJson.data.unreadCount ?? 0);
+        // Poll unread chat count
+        try {
+          const chatRes = await fetch("/api/chat/unread");
+          const chatJson = await chatRes.json();
+          if (active && chatJson.success) setUnreadChat(chatJson.data.unread ?? 0);
+        } catch { /* ignore */ }
         if (skillsRes && skillsRes.ok) {
           const skillsJson = await skillsRes.json();
           if (active && skillsJson.success) {
@@ -244,6 +261,7 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
             onNavigate={onNavigate}
             t={t}
             pendingSkills={pendingSkills}
+            unreadChat={unreadChat}
           />
         </div>
         <div className="border-t border-sidebar-border p-3">
@@ -289,6 +307,7 @@ export function AppShell({ currentView, onNavigate, children }: AppShellProps) {
             onSelect={() => setMobileOpen(false)}
             t={t}
             pendingSkills={pendingSkills}
+            unreadChat={unreadChat}
           />
         </SheetContent>
       </Sheet>

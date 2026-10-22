@@ -17,6 +17,7 @@ import { AuditView } from "@/components/modules/audit-view";
 import { SettingsView } from "@/components/modules/settings-view";
 import { ProfileView } from "@/components/modules/profile-view";
 import { FeedbackView } from "@/components/modules/feedback-view";
+import { ChatView } from "@/components/modules/chat-view";
 import { OnboardingForm } from "@/components/auth/onboarding-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -75,6 +76,7 @@ export default function Home() {
       {view === "attendance" && <AttendanceView />}
       {view === "documents" && <DocumentsView />}
       {view === "announcements" && <AnnouncementsView />}
+      {view === "chat" && <ChatView />}
       {view === "feedback" && <FeedbackView />}
       {view === "events" && <EventsView />}
       {view === "reports" && <ReportsView />}
