@@ -589,6 +589,13 @@ const en: Dict = {
   "chat.photo": "Photo",
   "chat.file": "File",
   "chat.unknown": "Unknown",
+  "chat.groupInfo": "Group Info",
+  "chat.groupInfoTab": "Info",
+  "chat.groupDescription": "Description / Note",
+  "chat.groupDescriptionPlaceholder": "Add a group description or note…",
+  "chat.groupPhotoUpdated": "Group photo updated",
+  "chat.groupUpdated": "Group updated",
+  "chat.tapToChangePhoto": "Tap photo to change",
 
   // ─────────────────────────────── Events ───────────────────────────────
   "events.title": "Events",
@@ -1449,6 +1456,13 @@ const sw: Dict = {
   "chat.photo": "Picha",
   "chat.file": "Faili",
   "chat.unknown": "Haijulikani",
+  "chat.groupInfo": "Taarifa za Kikundi",
+  "chat.groupInfoTab": "Taarifa",
+  "chat.groupDescription": "Maelezo / Kumbuka",
+  "chat.groupDescriptionPlaceholder": "Ongeza maelezo au kumbuka ya kikundi…",
+  "chat.groupPhotoUpdated": "Picha ya kikundi imesasishwa",
+  "chat.groupUpdated": "Kikundi kimesasishwa",
+  "chat.tapToChangePhoto": "Gusa picha kubadilisha",
 
   // ─────────────────────────────── Events ───────────────────────────────
   "events.title": "Matukio",

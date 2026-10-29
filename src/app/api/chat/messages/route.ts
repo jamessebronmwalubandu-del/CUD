@@ -40,6 +40,9 @@ const GET = withErrorHandler(async (req: NextRequest) => {
     take: limit,
     include: {
       sender: { select: { id: true, fullName: true, profilePhoto: true } },
+      reactions: {
+        include: { member: { select: { id: true, fullName: true } } },
+      },
     },
   });
 
@@ -94,6 +97,7 @@ const POST = withErrorHandler(async (req: NextRequest) => {
     },
     include: {
       sender: { select: { id: true, fullName: true, profilePhoto: true } },
+      reactions: { include: { member: { select: { id: true, fullName: true } } } },
     },
   });
 
